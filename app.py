@@ -65,7 +65,7 @@ def analyze_images_or_text(images, text_prompt):
     prompt = f"""
     Guten Morgen,
 
-    Mein Name ist Matthias. Ich habe immer wieder Probleme mit Gichtschüben. Daher haben wir ein Gichttagebuch angefangen. Mein Ziel ist eine Body-Recomposition: Mein Gewicht darf stabil bleiben oder leicht steigen, der Fokus liegt aber auf der gezielten Reduktion des Bauchfetts bei gleichzeitigem Erhalt der gesamten Muskelmasse, unter strikter Einhaltung purinarmer Ernährung (Gicht-Prävention). Wir kombinieren in unserem Tagebuch Körperwerte, Essen, Getränke, Training und Subs.
+    Mein Name ist Matthias. Ich habe immer wieder Probleme mit Gichtschüben. Daher haben wir an unserer App gefeilt. Mein Ziel ist eine Body-Recomposition: Mein Gewicht darf stabil bleiben oder leicht steigen, der Fokus liegt aber auf der gezielten Reduktion des Bauchfetts bei gleichzeitigem Erhalt der gesamten Muskelmasse, unter strikter Einhaltung purinarmer Ernährung (Gicht-Prävention). Wir kombinieren in unserem Tagebuch Körperwerte, Essen, Getränke, Training und Subs.
 
     Analysiere diese(s) Bild(er) / diesen Text ({text_prompt}). Wenn mehrere Bilder vorhanden sind, kombiniere alle erfassten Mahlzeiten/Daten zu einer Gesamtsumme bzw. Auswertung.
 
@@ -259,7 +259,7 @@ with tabs[0]:
 
                 st.markdown("---")
 
-                # 4. Gicht-Status Auswertung & Ampel-Zählung (Automatische Spaltensuche)
+                # 4. Gicht-Status Auswertung & Ampel-Zählung (Präzise Einzel-Zeilen-Auswertung)
                 status_col = None
                 for c in df.columns:
                     if 'gicht' in c.lower() or 'status' in c.lower() or 'ampel' in c.lower():
@@ -269,12 +269,27 @@ with tabs[0]:
                 if status_col:
                     st.markdown(f"### 🛡️ Gicht-Ampel Historie & Auswertung (Spalte: {status_col})")
                     
-                    # Werte vereinheitlichen (kleinschreiben, um Leerzeichen bereinigen)
-                    cleaned_status = df[status_col].astype(str).str.lower().str.strip()
+                    green_count = 0
+                    yellow_count = 0
+                    red_count = 0
                     
-                    green_count = cleaned_status.str.contains('grün|gruen|green|🟢').sum()
-                    yellow_count = cleaned_status.str.contains('gelb|yellow|🟡').sum()
-                    red_count = cleaned_status.str.contains('rot|red|🔴').sum()
+                    for val in df[status_col]:
+                        v_str = str(val).lower()
+                        # Wir zählen intelligent, welche Farben im Text vorkommen
+                        has_red = 'rot' in v_str or 'red' in v_str or '🔴' in v_str
+                        has_yellow = 'gelb' in v_str or 'yellow' in v_str or '🟡' in v_str
+                        has_green = 'grün' in v_str or 'gruen' in v_str or 'green' in v_str or '🟢' in v_str
+                        
+                        if has_red:
+                            red_count += 1
+                        elif has_yellow:
+                            yellow_count += 1
+                        elif has_green:
+                            green_count += 1
+                        else:
+                            # Fallback falls nur Text ohne direkte Farbnennung
+                            green_count += 1
+
                     total_filtered_days = len(df)
                     
                     # Metriken anzeigen
