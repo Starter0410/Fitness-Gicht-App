@@ -12,7 +12,7 @@ import datetime
 # DEIN API-KEY HIER EINTRAGEN:
 # =========================================================
 GEMINI_API_KEY = "AQ.Ab8RN6JBdMOINycPw0LdsUMe_kH9YVbflYGVvh1T-Jc0XTGCmQ" 
-EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"  # Hier ggf. den genauen Namen deiner Excel-Datei eintragen
+EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
 
 # ---------------------------------------------------------
 # SETUP & KONFIGURATION
@@ -149,12 +149,75 @@ def show_image_previews(files):
             cols[idx % 4].image(Image.open(file), use_container_width=True)
 
 # ---------------------------------------------------------
-# TAB-NAVIGATION
+# TAB-NAVIGATION (INKLUSIVE STATISTIK)
 # ---------------------------------------------------------
-tabs = st.tabs(["⚖️ Waage", "🥐 Frühstück", "🥗 Mittag", "🍝 Abend", "🍏 Snacks", "🥤 Getränke", "🏋️‍♂️ Training", "📊 Abschluss"])
+tabs = st.tabs([
+    "📊 Statistik & Trends", 
+    "⚖️ Waage", 
+    "🥐 Frühstück", 
+    "🥗 Mittag", 
+    "🍝 Abend", 
+    "🍏 Snacks", 
+    "🥤 Getränke", 
+    "🏋️‍♂️ Training", 
+    "📊 Abschluss"
+])
+
+# --- TAB 0: STATISTIK & TRENDS ---
+with tabs[0]:
+    st.subheader("📈 Historische Auswertungen & Trends")
+    
+    if os.path.exists(EXCEL_FILE):
+        try:
+            # Excel einlesen (erste Tabelle)
+            df = pd.read_excel(EXCEL_FILE)
+            
+            if not df.empty:
+                st.success(f"📊 {len(df)} Datensätze erfolgreich aus deiner Historie geladen!")
+                
+                # Spaltennamen bereinigen (Leerzeichen entfernen falls vorhanden)
+                df.columns = [str(c).strip() for c in df.columns]
+                
+                # Wir prüfen, ob die passenden Spalten da sind
+                # Standard-Spalten laut deiner Definition: Datum, KG, KFA, Skel.Musk, KCAL, Prot, Schritte etc.
+                
+                # 1. Körperwerte Kombi-Übersicht (KG, KFA, Skelettmuskel)
+                body_cols = [c for c in ['KG', 'KFA', 'Skel.Musk'] if c in df.columns]
+                if body_cols and 'Datum' in df.columns:
+                    st.markdown("### 🧬 Körperwerte im Verlauf (Body Recomp)")
+                    chart_df = df.set_index('Datum')[body_cols]
+                    st.line_chart(chart_df)
+                elif 'KG' in df.columns and 'Datum' in df.columns:
+                    st.markdown("### ⚖️ Gewichtskurve (KG)")
+                    st.line_chart(df.set_index('Datum')['KG'])
+
+                # 2. Schritte-Verlauf
+                if 'Schritte' in df.columns and 'Datum' in df.columns:
+                    st.markdown("### 🚶‍♂️ Schritte-Verlauf")
+                    st.bar_chart(df.set_index('Datum')['Schritte'])
+
+                # 3. Kalorien- & Proteintrend
+                nutri_cols = [c for c in ['KCAL', 'Prot'] if c in df.columns]
+                if nutri_cols and 'Datum' in df.columns:
+                    st.markdown("### 🥗 Kalorien- & Protein-Bilanz")
+                    st.line_chart(df.set_index('Datum')[nutri_cols])
+
+                # 4. Gicht-Status Verteilung
+                status_col = 'Gicht Status' if 'Gicht Status' in df.columns else None
+                if status_col:
+                    st.markdown("### 🛡️ Gicht-Ampel Historie")
+                    status_counts = df[status_col].value_counts()
+                    st.bar_chart(status_counts)
+
+            else:
+                st.info("Deine Excel-Datei ist noch leer. Sobald du Daten einträgst, erscheinen hier die Diagramme!")
+        except Exception as e:
+            st.error(f"Fehler beim Einlesen der Excel für die Statistiken: {e}")
+    else:
+        st.warning(f"Die Excel-Datei '{EXCEL_FILE}' wurde auf GitHub nicht gefunden.")
 
 # --- TAB 1: WAAGE ---
-with tabs[0]:
+with tabs[1]:
     st.subheader("⚖️ Waagen-Messung")
     imgs_w = st.file_uploader("Foto(s) der Waage / App wählen (mehrere möglich)", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
     show_image_previews(imgs_w)
@@ -204,12 +267,12 @@ def render_meal_tab(tab_name, meal_key):
         st.info(f"**Erfasst:** {current['desc']} | **{current['kcal']} kcal** | **{current['prot']}g Protein**")
         display_gicht_badge(current['gicht'], current.get('notiz', ''))
 
-with tabs[1]: render_meal_tab("Frühstück", "fruehstueck")
-with tabs[2]: render_meal_tab("Mittagessen", "mittagessen")
-with tabs[3]: render_meal_tab("Abendessen", "abendessen")
+with tabs[2]: render_meal_tab("Frühstück", "fruehstueck")
+with tabs[3]: render_meal_tab("Mittagessen", "mittagessen")
+with tabs[4]: render_meal_tab("Abendessen", "abendessen")
 
 # --- TAB 5: SNACKS ---
-with tabs[4]:
+with tabs[5]:
     st.subheader("🍏 Snacks & Zwischenmahlzeiten")
     imgs_s = st.file_uploader("Foto(s) vom Snack (mehrere möglich)", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
     show_image_previews(imgs_s)
@@ -236,7 +299,7 @@ with tabs[4]:
             display_gicht_badge(s['gicht'], s.get('notiz', ''))
 
 # --- TAB 6: GETRÄNKE ---
-with tabs[5]:
+with tabs[6]:
     st.subheader("🥤 Getränke-Zähler")
     
     d = st.session_state['drinks']
@@ -258,7 +321,7 @@ with tabs[5]:
     d['sonstiges_prot'] = cs2.number_input("Protein (g)", value=int(d['sonstiges_prot']), step=1)
 
 # --- TAB 7: TRAINING ---
-with tabs[6]:
+with tabs[7]:
     st.subheader("🏋️‍♂️ Training & Aktivitäten erfassen")
     
     imgs_tr = st.file_uploader(
@@ -306,7 +369,7 @@ with tabs[6]:
         st.success(f"💪 **Coach-Feedback:** {w['notiz']}")
 
 # --- TAB 8: TAGESABSCHLUSS ---
-with tabs[7]:
+with tabs[8]:
     st.subheader("🔍 Tagesabschluss & Endkontrolle")
     
     m = st.session_state['meals']
