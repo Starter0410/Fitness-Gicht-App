@@ -67,26 +67,24 @@ def analyze_images_or_text(images, text_prompt):
 
     Mein Name ist Matthias. Ich habe immer wieder Probleme mit Gichtschüben. Daher haben wir an unserer App gefeilt. Mein Ziel ist eine Body-Recomposition: Mein Gewicht darf stabil bleiben oder leicht steigen, der Fokus liegt aber auf der gezielten Reduktion des Bauchfetts bei gleichzeitigem Erhalt der gesamten Muskelmasse, unter strikter Einhaltung purinarmer Ernährung (Gicht-Prävention). Wir kombinieren in unserem Tagebuch Körperwerte, Essen, Getränke, Training und Subs.
 
-    Analysiere diese(s) Bild(er) / diesen Text ({text_prompt}). Wenn mehrere Bilder vorhanden sind, kombiniere alle erfassten Mahlzeiten/Daten zu einer Gesamtsumme bzw. Auswertung.
+    Analysiere diesen Text / diese Speise: '{text_prompt}'. 
 
-    Du analysierst diese Mahlzeiten auf KCAL, Protein und vergibst für jede Mahlzeit genau einen Ampel-Wert (Dropdown: grün, gelb, rot) nach folgender fester Logik:
+    Du analysierst diese Mahlzeit auf KCAL, Protein und vergibst genau einen Ampel-Wert (Dropdown: grün, gelb, rot) nach folgender fester Logik:
     - GRÜN: Vegetarisch oder rein purinarm (z. B. Milchprodukte, Eier, Gemüse, Obst, Haferflocken).
     - GELB: Hühnchen / Geflügel (moderate Purine).
     - ROT: Alle anderen Fleischsorten (z. B. Rind, Schwein, Fisch/Meeresfrüchte – stark purinhaltig).
 
-    Der allgemeine "Gicht Status" am Ende des Tages richtet sich nach den vergebenen Ampeln der Mahlzeiten (wenn alles grün/gelb bleibt, ist der Status grün/gelb; so bald rotes Fleisch dabei ist, schlägt der Gicht-Status entsprechend an).
-
-    Zu jeder Mahlzeit gibst du mir eine Notiz – überlege dir was. Fokus auf Gicht, aber es können auch motivierende oder mahnende Worte sein. 
-    Wenn es eine Waage ist: Lies Gewicht, KFA und Skelettmuskelmasse ab. Setze gicht_bewertung auf "grün" und erstelle ein motivierendes Feedback.
+    Der allgemeine "Gicht Status" richtet sich nach der Ampel der Mahlzeit.
+    Gib mir eine kurze Notiz dazu – mit Fokus auf Gicht, Purine, Motivation oder Mahnung.
 
     Gib das Ergebnis STRENG im folgenden JSON-Format zurück:
     {{
-        "gewicht": float oder null,
-        "kfa": float oder null,
-        "skelettmuskel": float oder null,
+        "gewicht": null,
+        "kfa": null,
+        "skelettmuskel": null,
         "kcal": int oder 0,
         "protein": int oder 0,
-        "beschreibung": "Kurze prägnante Zusammenfassung der Speisen/Bilder",
+        "beschreibung": "Kurze prägnante Zusammenfassung der Speise",
         "gicht_bewertung": "rot" oder "gelb" oder "grün",
         "mahlzeit_notiz": "Kurze Notiz/Feedback zur Mahlzeit mit Fokus auf Gicht, Purine, Motivation oder Mahnung."
     }}
@@ -109,7 +107,7 @@ def analyze_workout(images, text_prompt):
     
     prompt = f"""
     Du bist der persönliche Fitness-Coach von Matthias.
-    Analysiere diese(s) Bild(er) (Workout-Screenshot, Fitness-Tracker, E-Bike App) und/oder diesen Text: {text_prompt}.
+    Analysiere diesen Text / diese Aktivität: {text_prompt}.
     Fasse ALLE erkennbaren Trainingsleistungen zusammen. Gib mir Notizen, die motivierend sein sollen.
     Gib das Ergebnis STRENG im folgenden JSON-Format zurück:
     {{
@@ -348,7 +346,7 @@ def render_meal_tab(tab_name, meal_key):
     if st.button(f"🤖 {tab_name} analysieren", key=f"{meal_key}_btn", type="primary"):
         if imgs or txt:
             pil_imgs = [Image.open(f) for f in imgs] if imgs else []
-            res = analyze_images_or_text(pil_imgs, txt)
+            res = analyze_images_or_text(pil_imgs, txt if txt else "Kein Text angegeben")
             st.session_state['meals'][meal_key] = {
                 'kcal': res.get('kcal', 0),
                 'prot': res.get('protein', 0),
@@ -357,6 +355,8 @@ def render_meal_tab(tab_name, meal_key):
                 'notiz': res.get('mahlzeit_notiz', '')
             }
             st.success(f"{tab_name} erfolgreich ausgewertet!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
 
     current = st.session_state['meals'][meal_key]
     if current['kcal'] > 0 or current['desc']:
@@ -378,7 +378,7 @@ with tabs[5]:
     if st.button("🤖 Snack hinzufügen", type="primary"):
         if imgs_s or txt_s:
             pil_imgs = [Image.open(f) for f in imgs_s] if imgs_s else []
-            res = analyze_images_or_text(pil_imgs, txt_s)
+            res = analyze_images_or_text(pil_imgs, txt_s if txt_s else "Kein Text angegeben")
             st.session_state['meals']['snacks'].append({
                 'kcal': res.get('kcal', 0),
                 'prot': res.get('protein', 0),
@@ -387,6 +387,8 @@ with tabs[5]:
                 'notiz': res.get('mahlzeit_notiz', '')
             })
             st.success("Snack zur Tagesliste hinzugefügt!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
 
     if st.session_state['meals']['snacks']:
         st.markdown("### 🍿 Heutige Snacks:")
@@ -425,7 +427,7 @@ with tabs[7]:
     if st.button("🤖 Training analysieren", type="primary"):
         if imgs_tr or txt_tr:
             pil_imgs = [Image.open(f) for f in imgs_tr] if imgs_tr else []
-            res_tr = analyze_workout(pil_imgs, txt_tr)
+            res_tr = analyze_workout(pil_imgs, txt_tr if txt_tr else "Kein Text angegeben")
             
             st.session_state['workout']['schritte'] = res_tr.get('schritte') or st.session_state['workout']['schritte']
             st.session_state['workout']['zirkel_min'] = res_tr.get('zirkel_min') or st.session_state['workout']['zirkel_min']
@@ -435,6 +437,8 @@ with tabs[7]:
             st.session_state['workout']['sonstiges'] = res_tr.get('sonstiges') or st.session_state['workout']['sonstiges']
             st.session_state['workout']['notiz'] = res_tr.get('workout_notiz', '')
             st.success("Training erfolgreich analysiert!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
 
     w = st.session_state['workout']
     st.markdown("---")
