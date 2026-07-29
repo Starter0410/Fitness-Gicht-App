@@ -175,8 +175,12 @@ with tabs[0]:
                 # Spaltennamen bereinigen
                 df.columns = [str(c).strip() for c in df.columns]
                 
+                # Spalte 'Skel.Musk' für die Anzeige im Diagramm schick ausschreiben
+                if 'Skel.Musk' in df.columns:
+                    df.rename(columns={'Skel.Musk': 'Skelettmuskel (%)'}, inplace=True)
+                
                 # Zahlenkonvertierung für wichtige Spalten erzwingen
-                numeric_cols = ['KG', 'KFA', 'Skel.Musk', 'KCAL', 'Prot', 'Schritte']
+                numeric_cols = ['KG', 'KFA', 'Skelettmuskel (%)', 'KCAL', 'Prot', 'Schritte']
                 for col in numeric_cols:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -223,8 +227,8 @@ with tabs[0]:
                         st.info("Spalte 'KFA' nicht gefunden.")
                 with col_k3:
                     st.markdown("**Skelettmuskel (%)**")
-                    if 'Skel.Musk' in df.columns:
-                        st.line_chart(df.set_index(x_col)['Skel.Musk'] if x_col else df['Skel.Musk'])
+                    if 'Skelettmuskel (%)' in df.columns:
+                        st.line_chart(df.set_index(x_col)['Skelettmuskel (%)'] if x_col else df['Skelettmuskel (%)'])
 
                 st.markdown("---")
 
@@ -275,7 +279,6 @@ with tabs[0]:
                     
                     for val in df[status_col]:
                         v_str = str(val).lower()
-                        # Wir zählen intelligent, welche Farben im Text vorkommen
                         has_red = 'rot' in v_str or 'red' in v_str or '🔴' in v_str
                         has_yellow = 'gelb' in v_str or 'yellow' in v_str or '🟡' in v_str
                         has_green = 'grün' in v_str or 'gruen' in v_str or 'green' in v_str or '🟢' in v_str
@@ -287,18 +290,15 @@ with tabs[0]:
                         elif has_green:
                             green_count += 1
                         else:
-                            # Fallback falls nur Text ohne direkte Farbnennung
                             green_count += 1
 
                     total_filtered_days = len(df)
                     
-                    # Metriken anzeigen
                     am_c1, am_c2, am_c3 = st.columns(3)
                     am_c1.metric("🟢 Grüne Tage (Top)", f"{green_count}")
                     am_c2.metric("🟡 Gelbe Tage (Moderat)", f"{yellow_count}")
                     am_c3.metric("🔴 Rote Tage (Vorsicht)", f"{red_count}")
                     
-                    # Intelligentes Feedback
                     if red_count == 0 and total_filtered_days > 0:
                         st.success("🌟 Phänomenal! Im gewählten Zeitraum absolut 0 rote Tage. Perfekter Schutz vor Gichtschüben!")
                     elif red_count > (total_filtered_days * 0.2):
@@ -306,13 +306,12 @@ with tabs[0]:
                     else:
                         st.info("👍 Gute Balance! Die roten Tage halten sich stark in Grenzen, weiter so.")
                         
-                    # Kleines Balkendiagramm für die Counts
                     counts_df = pd.DataFrame({
                         'Anzahl Tage': [green_count, yellow_count, red_count]
                     }, index=['Grün', 'Gelb', 'Rot'])
                     st.bar_chart(counts_df)
                 else:
-                    st.info("Es wurde keine spezifische Gicht-Status-Spalte in der Excel gefunden (wird beim Tagesabschluss automatisch mitgeschrieben).")
+                    st.info("Es wurde keine spezifische Gicht-Status-Spalte in der Excel gefunden.")
 
             else:
                 st.info("Deine Excel-Datei ist noch leer.")
