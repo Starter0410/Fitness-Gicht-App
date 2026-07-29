@@ -152,7 +152,7 @@ def show_image_previews(files):
 # TAB-NAVIGATION
 # ---------------------------------------------------------
 tabs = st.tabs([
-    "📊 Statistik & Trends", 
+    "📊 Statistik & Bilanz", 
     "⚖️ Waage", 
     "🥐 Frühstück", 
     "🥗 Mittag", 
@@ -163,9 +163,9 @@ tabs = st.tabs([
     "📊 Abschluss"
 ])
 
-# --- TAB 0: STATISTIK & TRENDS ---
+# --- TAB 0: STATISTIK & BILANZ ---
 with tabs[0]:
-    st.subheader("📈 Historische Auswertungen & Trends")
+    st.subheader("📈 Historische Auswertungen, Wochen- & Monatsbilanz")
     
     if os.path.exists(EXCEL_FILE):
         try:
@@ -185,7 +185,7 @@ with tabs[0]:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-                # Datums-Spalte verarbeiten (Monatsfilter ermöglichen)
+                # Datums-Spalte verarbeiten
                 date_col = None
                 for c in df.columns:
                     if 'datum' in c.lower() or 'date' in c.lower():
@@ -194,48 +194,67 @@ with tabs[0]:
                 
                 if date_col:
                     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                    df = df.sort_values(by=date_col, ascending=False) # Neueste zuerst für Wochenbilanz
                     df['Monat-Jahr'] = df[date_col].dt.strftime('%Y-%m')
                     
-                    # Filter UI oben im Statistik-Tab
+                    # --- NEU: WOCHEN- & MONATSBILANZ BOX ---
+                    st.markdown("### 📊 Aktuelle Bilanzen (Durchschnitte)")
+                    
+                    # Die letzten 7 Tage berechnen
+                    recent_7 = df.head(7)
+                    avg_7_kcal = int(recent_7['KCAL'].mean()) if 'KCAL' in recent_7.columns and not recent_7['KCAL'].dropna().empty else 0
+                    avg_7_prot = int(recent_7['Prot'].mean()) if 'Prot' in recent_7.columns and not recent_7['Prot'].dropna().empty else 0
+                    avg_7_steps = int(recent_7['Schritte'].mean()) if 'Schritte' in recent_7.columns and not recent_7['Schritte'].dropna().empty else 0
+                    
+                    col_b1, col_b2, col_b3 = st.columns(3)
+                    col_b1.metric("Ø KCAL (Letzte 7 Tage)", f"{avg_7_kcal} kcal")
+                    col_b2.metric("Ø Protein (Letzte 7 Tage)", f"{avg_7_prot} g")
+                    col_b3.metric("Ø Schritte (Letzte 7 Tage)", f"{avg_7_steps}")
+
+                    st.markdown("---")
+
+                    # Filter UI für Diagramme
                     verfuegbare_monate = sorted(df['Monat-Jahr'].dropna().unique(), reverse=True)
                     if verfuegbare_monate:
                         selected_month = st.selectbox(
-                            "📅 Nach Monat filtern (Alle Statistiken passen sich an):", 
+                            "📅 Nach Monat für Diagramme filtern:", 
                             ["Alle Monate"] + list(verfuegbare_monate)
                         )
                         if selected_month != "Alle Monate":
-                            df = df[df['Monat-Jahr'] == selected_month]
+                            df_filtered = df[df['Monat-Jahr'] == selected_month]
+                        else:
+                            df_filtered = df
+                    else:
+                        df_filtered = df
 
-                st.success(f"📊 {len(df)} Datensätze in der Auswertung aktiv.")
+                else:
+                    df_filtered = df
 
-                # X-Achse definieren
+                st.success(f"📊 {len(df_filtered)} Datensätze in der Auswertung aktiv.")
                 x_col = date_col if date_col else None
 
-                # 1. Körperwerte einzeln oder kombiniert anzeigen
+                # 1. Körperwerte
                 st.markdown("### 🧬 Körperwerte (Body Recomp)")
                 col_k1, col_k2, col_k3 = st.columns(3)
-                
                 with col_k1:
                     st.markdown("**Gewicht (KG)**")
-                    if 'KG' in df.columns:
-                        st.line_chart(df.set_index(x_col)['KG'] if x_col else df['KG'])
+                    if 'KG' in df_filtered.columns:
+                        st.line_chart(df_filtered.set_index(x_col)['KG'] if x_col else df_filtered['KG'])
                 with col_k2:
                     st.markdown("**KFA (%)**")
-                    if 'KFA' in df.columns:
-                        st.line_chart(df.set_index(x_col)['KFA'] if x_col else df['KFA'])
-                    else:
-                        st.info("Spalte 'KFA' nicht gefunden.")
+                    if 'KFA' in df_filtered.columns:
+                        st.line_chart(df_filtered.set_index(x_col)['KFA'] if x_col else df_filtered['KFA'])
                 with col_k3:
                     st.markdown("**Skelettmuskel (%)**")
-                    if 'Skelettmuskel (%)' in df.columns:
-                        st.line_chart(df.set_index(x_col)['Skelettmuskel (%)'] if x_col else df['Skelettmuskel (%)'])
+                    if 'Skelettmuskel (%)' in df_filtered.columns:
+                        st.line_chart(df_filtered.set_index(x_col)['Skelettmuskel (%)'] if x_col else df_filtered['Skelettmuskel (%)'])
 
                 st.markdown("---")
 
-                # 2. Schritte-Verlauf mit Ziel-Linie (10.000 Schritte)
+                # 2. Schritte
                 st.markdown("### 🚶‍♂️ Schritte-Verlauf (Ziel: 10.000 Schritte)")
-                if 'Schritte' in df.columns:
-                    chart_data = df[[date_col, 'Schritte']].copy() if date_col else pd.DataFrame({'Schritte': df['Schritte']})
+                if 'Schritte' in df_filtered.columns:
+                    chart_data = df_filtered[[date_col, 'Schritte']].copy() if date_col else pd.DataFrame({'Schritte': df_filtered['Schritte']})
                     if date_col:
                         chart_data = chart_data.set_index(date_col)
                     chart_data['Ziel (10k)'] = 10000
@@ -243,87 +262,59 @@ with tabs[0]:
 
                 st.markdown("---")
 
-                # 3. Getrennte Kalorien- und Protein-Diagramme
+                # 3. Kalorien & Protein
                 col_n1, col_n2 = st.columns(2)
                 with col_n1:
                     st.markdown("### 🥗 Kalorien-Trend (kcal)")
-                    st.markdown("*Ziel-Korridor: ~2.200 - 2.400 kcal*")
-                    if 'KCAL' in df.columns:
-                        kc_data = df.set_index(date_col)[['KCAL']].copy() if date_col else pd.DataFrame({'KCAL': df['KCAL']})
+                    if 'KCAL' in df_filtered.columns:
+                        kc_data = df_filtered.set_index(date_col)[['KCAL']].copy() if date_col else pd.DataFrame({'KCAL': df_filtered['KCAL']})
                         kc_data['Ziel (2300 kcal)'] = 2300
                         st.line_chart(kc_data)
-                
                 with col_n2:
                     st.markdown("### 🥩 Protein-Trend (g)")
-                    st.markdown("*Ziel-Korridor: min. 140 - 150g*")
-                    if 'Prot' in df.columns:
-                        pr_data = df.set_index(date_col)[['Prot']].copy() if date_col else pd.DataFrame({'Prot': df['Prot']})
+                    if 'Prot' in df_filtered.columns:
+                        pr_data = df_filtered.set_index(date_col)[['Prot']].copy() if date_col else pd.DataFrame({'Prot': df_filtered['Prot']})
                         pr_data['Ziel (145g)'] = 145
                         st.line_chart(pr_data)
 
                 st.markdown("---")
 
-                # 4. Gicht-Status Auswertung & Ampel-Zählung (Präzise Einzel-Zeilen-Auswertung)
+                # 4. Gicht-Status Auswertung
                 status_col = None
-                for c in df.columns:
+                for c in df_filtered.columns:
                     if 'gicht' in c.lower() or 'status' in c.lower() or 'ampel' in c.lower():
                         status_col = c
                         break
                 
                 if status_col:
-                    st.markdown(f"### 🛡️ Gicht-Ampel Historie & Auswertung (Spalte: {status_col})")
+                    st.markdown(f"### 🛡️ Gicht-Ampel Historie")
+                    green_count, yellow_count, red_count = 0, 0, 0
                     
-                    green_count = 0
-                    yellow_count = 0
-                    red_count = 0
-                    
-                    for val in df[status_col]:
+                    for val in df_filtered[status_col]:
                         v_str = str(val).lower()
-                        has_red = 'rot' in v_str or 'red' in v_str or '🔴' in v_str
-                        has_yellow = 'gelb' in v_str or 'yellow' in v_str or '🟡' in v_str
-                        has_green = 'grün' in v_str or 'gruen' in v_str or 'green' in v_str or '🟢' in v_str
-                        
-                        if has_red:
-                            red_count += 1
-                        elif has_yellow:
-                            yellow_count += 1
-                        elif has_green:
-                            green_count += 1
-                        else:
-                            green_count += 1
+                        if 'rot' in v_str or 'red' in v_str or '🔴' in v_str: red_count += 1
+                        elif 'gelb' in v_str or 'yellow' in v_str or '🟡' in v_str: yellow_count += 1
+                        else: green_count += 1
 
-                    total_filtered_days = len(df)
-                    
                     am_c1, am_c2, am_c3 = st.columns(3)
-                    am_c1.metric("🟢 Grüne Tage (Top)", f"{green_count}")
-                    am_c2.metric("🟡 Gelbe Tage (Moderat)", f"{yellow_count}")
-                    am_c3.metric("🔴 Rote Tage (Vorsicht)", f"{red_count}")
+                    am_c1.metric("🟢 Grüne Tage", f"{green_count}")
+                    am_c2.metric("🟡 Gelbe Tage", f"{yellow_count}")
+                    am_c3.metric("🔴 Rote Tage", f"{red_count}")
                     
-                    if red_count == 0 and total_filtered_days > 0:
-                        st.success("🌟 Phänomenal! Im gewählten Zeitraum absolut 0 rote Tage. Perfekter Schutz vor Gichtschüben!")
-                    elif red_count > (total_filtered_days * 0.2):
-                        st.warning("⚠️ Achtung: Im gewählten Zeitraum sind verhältnismäßig viele rote Tage dabei. Achte etwas mehr auf purinarme Alternativen.")
-                    else:
-                        st.info("👍 Gute Balance! Die roten Tage halten sich stark in Grenzen, weiter so.")
-                        
-                    counts_df = pd.DataFrame({
-                        'Anzahl Tage': [green_count, yellow_count, red_count]
-                    }, index=['Grün', 'Gelb', 'Rot'])
+                    counts_df = pd.DataFrame({'Anzahl Tage': [green_count, yellow_count, red_count]}, index=['Grün', 'Gelb', 'Rot'])
                     st.bar_chart(counts_df)
-                else:
-                    st.info("Es wurde keine spezifische Gicht-Status-Spalte in der Excel gefunden.")
 
             else:
                 st.info("Deine Excel-Datei ist noch leer.")
         except Exception as e:
-            st.error(f"Fehler beim Einlesen der Excel für Statistiken: {e}")
+            st.error(f"Fehler beim Einlesen der Excel: {e}")
     else:
         st.warning(f"Die Excel-Datei '{EXCEL_FILE}' wurde auf GitHub nicht gefunden.")
 
 # --- TAB 1: WAAGE ---
 with tabs[1]:
     st.subheader("⚖️ Waagen-Messung")
-    imgs_w = st.file_uploader("Foto(s) der Waage / App wählen (mehrere möglich)", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
+    imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
     show_image_previews(imgs_w)
     
     if imgs_w:
@@ -345,10 +336,24 @@ with tabs[1]:
             st.session_state['saved_m'] = m
             st.success("Waagendaten im Zwischenspeicher gesichert!")
 
-# --- HAUPTMAHLZEITEN ---
+# --- HAUPTMAHLZEITEN (MIT FRÜHSTÜCKS-FAVORITEN) ---
 def render_meal_tab(tab_name, meal_key):
     st.subheader(f"Mahlzeit erfassen: {tab_name}")
-    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen (mehrere möglich)", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
+    
+    # NEU: Schnell-Auswahl für Favoriten beim Frühstück
+    if meal_key == 'fruehstueck':
+        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
+        fav_wahl = st.selectbox(
+            "Wähle ein oft gegessenes Frühstück:", 
+            ["-- Manuell / Foto eingeben --", "Quarkbrot mit Haferflocken & Beeren", "Protein-Porridge mit Joghurt"]
+        )
+        if fav_wahl == "Quarkbrot mit Haferflocken & Beeren":
+            st.session_state['meals'][meal_key] = {'kcal': 450, 'prot': 35, 'desc': 'Quarkbrot mit Haferflocken & Beeren', 'gicht': 'grün', 'notiz': 'Perfekter purinarmer Start mit viel Protein!'}
+        elif fav_wahl == "Protein-Porridge mit Joghurt":
+            st.session_state['meals'][meal_key] = {'kcal': 400, 'prot': 30, 'desc': 'Protein-Porridge mit Joghurt', 'gicht': 'grün', 'notiz': 'Guter Eiweißgehalt, ideal für den Muskelerhalt.'}
+        st.markdown("---")
+
+    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
     show_image_previews(imgs)
     
     txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
@@ -378,7 +383,7 @@ with tabs[4]: render_meal_tab("Abendessen", "abendessen")
 # --- TAB 5: SNACKS ---
 with tabs[5]:
     st.subheader("🍏 Snacks & Zwischenmahlzeiten")
-    imgs_s = st.file_uploader("Foto(s) vom Snack (mehrere möglich)", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
+    imgs_s = st.file_uploader("Foto(s) vom Snack", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
     show_image_previews(imgs_s)
     
     txt_s = st.text_input("Oder Snack beschreiben", key="snack_txt")
@@ -393,7 +398,8 @@ with tabs[5]:
                 'desc': res.get('beschreibung', txt_s),
                 'gicht': res.get('gicht_bewertung', 'grün'),
                 'notiz': res.get('mahlzeit_notiz', '')
-            })
+            }
+            )
             st.success("Snack zur Tagesliste hinzugefügt!")
 
     if st.session_state['meals']['snacks']:
@@ -411,14 +417,13 @@ with tabs[6]:
     with col1:
         d['wasser_soda'] = st.number_input("💧 Wasser / Soda / Zitrone (Liter)", value=float(d['wasser_soda']), step=0.5)
         d['kaffee'] = st.number_input("☕ Kaffee (Tassen)", value=int(d['kaffee']), step=1)
-    
     with col2:
-        d['whey_scoops'] = st.number_input("🐮 Whey / Iso Clear (Scoops = 30g Prot)", value=int(d['whey_scoops']), step=1)
+        d['whey_scoops'] = st.number_input("🐮 Whey / Iso Clear (Scoops)", value=int(d['whey_scoops']), step=1)
         d['redbull'] = st.number_input("⚡ Red Bull (Dosen)", value=int(d['redbull']), step=1)
         
     st.markdown("---")
-    st.write("**🥤 Sonstiges Getränk (z. B. Cola Zero):**")
-    d['sonstiges_txt'] = st.text_input("Name des Getränks", value=d['sonstiges_txt'], placeholder="z. B. Cola Zero")
+    st.write("**🥤 Sonstiges Getränk:**")
+    d['sonstiges_txt'] = st.text_input("Name des Getränks", value=d['sonstiges_txt'])
     cs1, cs2 = st.columns(2)
     d['sonstiges_kcal'] = cs1.number_input("Kalorien (kcal)", value=int(d['sonstiges_kcal']), step=10)
     d['sonstiges_prot'] = cs2.number_input("Protein (g)", value=int(d['sonstiges_prot']), step=1)
@@ -426,15 +431,10 @@ with tabs[6]:
 # --- TAB 7: TRAINING ---
 with tabs[7]:
     st.subheader("🏋️‍♂️ Training & Aktivitäten erfassen")
-    imgs_tr = st.file_uploader(
-        "Screenshots vom Training / E-Bike / Tracker hochladen (mehrere möglich)", 
-        type=["jpg", "png", "jpeg"], 
-        accept_multiple_files=True, 
-        key="tr_imgs"
-    )
+    imgs_tr = st.file_uploader("Screenshots hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="tr_imgs")
     show_image_previews(imgs_tr)
     
-    txt_tr = st.text_input("Oder Training beschreiben", key="tr_txt", placeholder="z. B. 45 Min Zirkeltraining mit Kurzhanteln und Planks")
+    txt_tr = st.text_input("Oder Training beschreiben", key="tr_txt")
     
     if st.button("🤖 Training analysieren", type="primary"):
         if imgs_tr or txt_tr:
@@ -452,21 +452,14 @@ with tabs[7]:
 
     w = st.session_state['workout']
     st.markdown("---")
-    st.write("✏️ **Manuelle Anpassung / Details:**")
     w['schritte'] = st.number_input("🚶 Schritte Anzahl", value=int(w['schritte']), step=500)
-    
     col_z1, col_z2 = st.columns([1, 2])
     w['zirkel_min'] = col_z1.number_input("⏱️ Zirkel (Min)", value=int(w['zirkel_min']), step=5)
-    w['zirkel_details'] = col_z2.text_input("Übungen / Wdh", value=w['zirkel_details'], placeholder="z.B. 3 Runden Kurzhanteln & Planks")
-    
+    w['zirkel_details'] = col_z2.text_input("Übungen / Wdh", value=w['zirkel_details'])
     col_b1, col_b2 = st.columns(2)
     w['bike_km'] = col_b1.number_input("🚴 Fahrrad (km)", value=float(w['bike_km']), step=1.0)
-    w['bike_modus'] = col_b2.text_input("E-Bike Modus", value=w['bike_modus'], placeholder="z.B. Tour / Sport")
-    
-    w['sonstiges'] = st.text_input("🏊 Sonstiges (Schwimmen, Seilspringen)", value=w['sonstiges'])
-
-    if w['notiz']:
-        st.success(f"💪 **Coach-Feedback:** {w['notiz']}")
+    w['bike_modus'] = col_b2.text_input("E-Bike Modus", value=w['bike_modus'])
+    w['sonstiges'] = st.text_input("🏊 Sonstiges", value=w['sonstiges'])
 
 # --- TAB 8: TAGESABSCHLUSS ---
 with tabs[8]:
@@ -477,10 +470,8 @@ with tabs[8]:
     
     whey_kcal = d['whey_scoops'] * 120
     whey_prot = d['whey_scoops'] * 30
-    
     total_drink_kcal = whey_kcal + d['sonstiges_kcal']
     total_drink_prot = whey_prot + d['sonstiges_prot']
-    
     snack_kcal = sum(s['kcal'] for s in m['snacks'])
     snack_prot = sum(s['prot'] for s in m['snacks'])
     
@@ -490,56 +481,44 @@ with tabs[8]:
     drink_list = []
     if d['wasser_soda'] > 0: drink_list.append(f"{d['wasser_soda']}L Wasser/Soda")
     if d['kaffee'] > 0: drink_list.append(f"{d['kaffee']}x Kaffee")
-    if d['whey_scoops'] > 0: drink_list.append(f"{d['whey_scoops']} Scoop(s) Whey")
+    if d['whey_scoops'] > 0: drink_list.append(f"{d['whey_scoops']} Scoop Whey")
     if d['redbull'] > 0: drink_list.append(f"{d['redbull']}x Red Bull")
-    if d['sonstiges_txt']: drink_list.append(f"{d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal / {d['sonstiges_prot']}g Prot)")
+    if d['sonstiges_txt']: drink_list.append(f"{d['sonstiges_txt']}")
     
-    drink_summary = ", ".join(drink_list) if drink_list else "Keine gesonderten Getränke erfasst"
-
+    drink_summary = ", ".join(drink_list) if drink_list else "Keine Drinks"
+    
     workout_list = []
     if w['schritte'] > 0: workout_list.append(f"{w['schritte']} Schritte")
-    if w['zirkel_min'] > 0: workout_list.append(f"Zirkel {w['zirkel_min']}m ({w['zirkel_details']})")
-    if w['bike_km'] > 0: workout_list.append(f"Bike {w['bike_km']}km [{w['bike_modus']}]")
-    if w['sonstiges']: workout_list.append(f"Sonstiges: {w['sonstiges']}")
-    
-    workout_summary = ", ".join(workout_list) if workout_list else "Ruhetag / Keine Aktivitäten"
+    if w['zirkel_min'] > 0: workout_list.append(f"Zirkel {w['zirkel_min']}m")
+    if w['bike_km'] > 0: workout_list.append(f"Bike {w['bike_km']}km")
+    workout_summary = ", ".join(workout_list) if workout_list else "Keine Aktivität"
 
-    st.markdown("### 📊 Tagesübersicht")
     col_a, col_b = st.columns(2)
-    col_a.metric("Gesamtkalorien (inkl. Drinks)", f"{total_kcal} kcal")
-    col_b.metric("Gesamtprotein (inkl. Drinks)", f"{total_prot} g")
-    
-    st.info(f"🥤 **Getränke:** {drink_summary}")
-    st.success(f"🏋️‍♂️ **Training:** {workout_summary}")
-
-    st.markdown("---")
+    col_a.metric("Gesamtkalorien", f"{total_kcal} kcal")
+    col_b.metric("Gesamtprotein", f"{total_prot} g")
     
     descriptions = []
-    if m['fruehstueck']['desc']: descriptions.append(f"Frühstück: {m['fruehstueck']['desc']} [{m['fruehstueck']['gicht'].upper()}]")
-    if m['mittagessen']['desc']: descriptions.append(f"Mittag: {m['mittagessen']['desc']} [{m['mittagessen']['gicht'].upper()}]")
-    if m['abendessen']['desc']: descriptions.append(f"Abend: {m['abendessen']['desc']} [{m['abendessen']['gicht'].upper()}]")
-    if m['snacks']: descriptions.append("Snacks: " + ", ".join(s['desc'] for s in m['snacks']))
-    if drink_list: descriptions.append(f"Getränke: {drink_summary}")
-    if workout_list: descriptions.append(f"Training: {workout_summary}")
-    if w['notiz']: descriptions.append(f"Coach-Notiz: {w['notiz']}")
+    if m['fruehstueck']['desc']: descriptions.append(f"Frühstück: {m['fruehstueck']['desc']}")
+    if m['mittagessen']['desc']: descriptions.append(f"Mittag: {m['mittagessen']['desc']}")
+    if m['abendessen']['desc']: descriptions.append(f"Abend: {m['abendessen']['desc']}")
+    if m['snacks']: descriptions.append("Snacks vorhanden")
+    descriptions.append(f"Getränke: {drink_summary}")
+    descriptions.append(f"Training: {workout_summary}")
     
     full_notes = " | ".join(descriptions)
 
     with st.form("final_excel_form"):
         datum = st.date_input("Datum", value=datetime.date.today())
-        
-        st.write("**Waagendaten:**")
         c1, c2, c3 = st.columns(3)
         g_val = c1.number_input("Gewicht (kg)", value=float(st.session_state.get('saved_g', 0.0)), step=0.1)
         k_val = c2.number_input("KFA (%)", value=float(st.session_state.get('saved_k', 0.0)), step=0.1)
         m_val = c3.number_input("Skelettmuskel (%)", value=float(st.session_state.get('saved_m', 0.0)), step=0.1)
         
-        st.write("**Nährwerte Gesamt:**")
         c4, c5 = st.columns(2)
-        kc_val = c4.number_input("Kalorien Gesamt (kcal)", value=total_kcal)
-        pr_val = c5.number_input("Protein Gesamt (g)", value=total_prot)
+        kc_val = c4.number_input("Kalorien Gesamt", value=total_kcal)
+        pr_val = c5.number_input("Protein Gesamt", value=total_prot)
         
-        notizen = st.text_area("Generierte Tagesnotiz für Excel", value=full_notes, height=120)
+        notizen = st.text_area("Generierte Tagesnotiz für Excel", value=full_notes, height=100)
         
         if st.form_submit_button("🚀 In Excel speichern & Download vorbereiten"):
             if os.path.exists(EXCEL_FILE):
@@ -548,16 +527,16 @@ with tabs[8]:
                     ws = wb.active
                     ws.append([str(datum), g_val, k_val, m_val, kc_val, pr_val, notizen])
                     wb.save(EXCEL_FILE)
-                    st.success(f"✅ Tageseintrag für den {datum} erfolgreich in '{EXCEL_FILE}' gespeichert!")
+                    st.success(f"✅ Tageseintrag erfolgreich gespeichert!")
                 except Exception as e:
-                    st.error(f"Fehler beim Speichern: {e}")
+                    st.error(f"Fehler: {e}")
             else:
                 from openpyxl import Workbook
                 wb = Workbook()
                 ws = wb.active
                 ws.append([str(datum), g_val, k_val, m_val, kc_val, pr_val, notizen])
                 wb.save(EXCEL_FILE)
-                st.success(f"✅ Neue Excel erstellt und Eintrag gespeichert!")
+                st.success(f"✅ Neue Excel erstellt & gespeichert!")
 
     if os.path.exists(EXCEL_FILE):
         with open(EXCEL_FILE, "rb") as file:
