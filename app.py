@@ -149,7 +149,7 @@ def show_image_previews(files):
             cols[idx % 4].image(Image.open(file), use_container_width=True)
 
 # ---------------------------------------------------------
-# TAB-NAVIGATION (INKLUSIVE STATISTIK)
+# TAB-NAVIGATION
 # ---------------------------------------------------------
 tabs = st.tabs([
     "📊 Statistik & Trends", 
@@ -169,50 +169,108 @@ with tabs[0]:
     
     if os.path.exists(EXCEL_FILE):
         try:
-            # Excel einlesen (erste Tabelle)
             df = pd.read_excel(EXCEL_FILE)
             
             if not df.empty:
                 st.success(f"📊 {len(df)} Datensätze erfolgreich aus deiner Historie geladen!")
                 
-                # Spaltennamen bereinigen (Leerzeichen entfernen falls vorhanden)
+                # Spaltennamen bereinigen
                 df.columns = [str(c).strip() for c in df.columns]
                 
-                # Wir prüfen, ob die passenden Spalten da sind
-                # Standard-Spalten laut deiner Definition: Datum, KG, KFA, Skel.Musk, KCAL, Prot, Schritte etc.
+                # Zahlenkonvertierung für wichtige Spalten erzwingen, falls Excel sie als Text speichert
+                numeric_cols = ['KG', 'KFA', 'Skel.Musk', 'KCAL', 'Prot', 'Schritte']
+                for col in numeric_cols:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+
+                # X-Achse definieren (Datum, wenn vorhanden, sonst Index)
+                x_col = 'Datum' if 'Datum' in df.columns else None
+
+                # 1. Körperwerte einzeln oder kombiniert anzeigen
+                st.markdown("### 🧬 Körperwerte (Body Recomp)")
+                col_k1, col_k2, col_k3 = st.columns(3)
                 
-                # 1. Körperwerte Kombi-Übersicht (KG, KFA, Skelettmuskel)
-                body_cols = [c for c in ['KG', 'KFA', 'Skel.Musk'] if c in df.columns]
-                if body_cols and 'Datum' in df.columns:
-                    st.markdown("### 🧬 Körperwerte im Verlauf (Body Recomp)")
-                    chart_df = df.set_index('Datum')[body_cols]
-                    st.line_chart(chart_df)
-                elif 'KG' in df.columns and 'Datum' in df.columns:
-                    st.markdown("### ⚖️ Gewichtskurve (KG)")
-                    st.line_chart(df.set_index('Datum')['KG'])
+                with col_k1:
+                    st.markdown("**Gewicht (KG)**")
+                    if 'KG' in df.columns:
+                        st.line_chart(df.set_index(x_col)['KG'] if x_col else df['KG'])
+                with col_k2:
+                    st.markdown("**KFA (%)**")
+                    if 'KFA' in df.columns:
+                        st.line_chart(df.set_index(x_col)['KFA'] if x_col else df['KFA'])
+                    else:
+                        st.info("Spalte 'KFA' nicht gefunden.")
+                with col_k3:
+                    st.markdown("**Skelettmuskel (%)**")
+                    if 'Skel.Musk' in df.columns:
+                        st.line_chart(df.set_index(x_col)['Skel.Musk'] if x_col else df['Skel.Musk'])
 
-                # 2. Schritte-Verlauf
-                if 'Schritte' in df.columns and 'Datum' in df.columns:
-                    st.markdown("### 🚶‍♂️ Schritte-Verlauf")
-                    st.bar_chart(df.set_index('Datum')['Schritte'])
+                st.markdown("---")
 
-                # 3. Kalorien- & Proteintrend
-                nutri_cols = [c for c in ['KCAL', 'Prot'] if c in df.columns]
-                if nutri_cols and 'Datum' in df.columns:
-                    st.markdown("### 🥗 Kalorien- & Protein-Bilanz")
-                    st.line_chart(df.set_index('Datum')[nutri_cols])
+                # 2. Schritte-Verlauf mit Ziel-Linie (10.000 Schritte)
+                st.markdown("### 🚶‍♂️ Schritte-Verlauf (Ziel: 10.000 Schritte)")
+                if 'Schritte' in df.columns:
+                    chart_data = df[['Datum', 'Schritte']].copy() if x_col else pd.DataFrame({'Schritte': df['Schritte']})
+                    if x_col:
+                        chart_data = chart_data.set_index('Datum')
+                    # Wir fügen eine virtuelle Ziel-Spalte mit 10.000 hinzu, damit man die Linie sieht
+                    chart_data['Ziel (10k)'] = 10000
+                    st.line_chart(chart_data)
 
-                # 4. Gicht-Status Verteilung
+                st.markdown("---")
+
+                # 3. Getrennte Kalorien- und Protein-Diagramme
+                col_n1, col_n2 = st.columns(2)
+                with col_n1:
+                    st.markdown("### 🥗 Kalorien-Trend (kcal)")
+                    st.markdown("*Ziel-Korridor: ~2.200 - 2.400 kcal*")
+                    if 'KCAL' in df.columns:
+                        kc_data = df.set_index(x_col)[['KCAL']].copy() if x_col else pd.DataFrame({'KCAL': df['KCAL']})
+                        kc_data['Ziel (2300 kcal)'] = 2300
+                        st.line_chart(kc_data)
+                
+                with col_n2:
+                    st.markdown("### 🥩 Protein-Trend (g)")
+                    st.markdown("*Ziel-Korridor: min. 140 - 150g*")
+                    if 'Prot' in df.columns:
+                        pr_data = df.set_index(x_col)[['Prot']].copy() if x_col else pd.DataFrame({'Prot': df['Prot']})
+                        pr_data['Ziel (145g)'] = 145
+                        st.line_chart(pr_data)
+
+                st.markdown("---")
+
+                # 4. Gicht-Status Auswertung & Ampel-Zählung
                 status_col = 'Gicht Status' if 'Gicht Status' in df.columns else None
                 if status_col:
-                    st.markdown("### 🛡️ Gicht-Ampel Historie")
-                    status_counts = df[status_col].value_counts()
-                    st.bar_chart(status_counts)
+                    st.markdown("### 🛡️ Gicht-Ampel Historie & Auswertung")
+                    counts = df[status_col].value_counts()
+                    
+                    # Werte sicher auslesen
+                    green_count = counts.get('grün', 0) + counts.get('Gruen', 0)
+                    yellow_count = counts.get('gelb', 0)
+                    red_count = counts.get('rot', 0)
+                    total_days = len(df)
+                    
+                    # Metriken anzeigen
+                    am_c1, am_c2, am_c3 = st.columns(3)
+                    am_c1.metric("🟢 Grüne Tage (Top)", f"{green_count}")
+                    am_c2.metric("🟡 Gelbe Tage (Moderat)", f"{yellow_count}")
+                    am_c3.metric("🔴 Rote Tage (Vorsicht)", f"{red_count}")
+                    
+                    # Intelligentes Feedback
+                    if red_count == 0 and total_days > 0:
+                        st.success("🌟 Phänomenal! Bisher absolut 0 rote Tage. Perfekter Schutz vor Gichtschüben!")
+                    elif red_count > (total_days * 0.2):
+                        st.warning("⚠️ Achtung: Du hast verhältnismäßig viele rote Tage dabei. Achte etwas mehr auf purinarme Alternativen bei Fleisch & Fisch.")
+                    else:
+                        st.info("👍 Gute Balance! Die roten Tage halten sich stark in Grenzen, weiter so.")
+                        
+                    st.bar_chart(counts)
 
             else:
-                st.info("Deine Excel-Datei ist noch leer. Sobald du Daten einträgst, erscheinen hier die Diagramme!")
+                st.info("Deine Excel-Datei ist noch leer.")
         except Exception as e:
-            st.error(f"Fehler beim Einlesen der Excel für die Statistiken: {e}")
+            st.error(f"Fehler beim Einlesen der Excel für Statistiken: {e}")
     else:
         st.warning(f"Die Excel-Datei '{EXCEL_FILE}' wurde auf GitHub nicht gefunden.")
 
@@ -301,7 +359,6 @@ with tabs[5]:
 # --- TAB 6: GETRÄNKE ---
 with tabs[6]:
     st.subheader("🥤 Getränke-Zähler")
-    
     d = st.session_state['drinks']
     
     col1, col2 = st.columns(2)
@@ -323,7 +380,6 @@ with tabs[6]:
 # --- TAB 7: TRAINING ---
 with tabs[7]:
     st.subheader("🏋️‍♂️ Training & Aktivitäten erfassen")
-    
     imgs_tr = st.file_uploader(
         "Screenshots vom Training / E-Bike / Tracker hochladen (mehrere möglich)", 
         type=["jpg", "png", "jpeg"], 
@@ -349,10 +405,8 @@ with tabs[7]:
             st.success("Training erfolgreich analysiert!")
 
     w = st.session_state['workout']
-    
     st.markdown("---")
     st.write("✏️ **Manuelle Anpassung / Details:**")
-    
     w['schritte'] = st.number_input("🚶 Schritte Anzahl", value=int(w['schritte']), step=500)
     
     col_z1, col_z2 = st.columns([1, 2])
@@ -371,26 +425,22 @@ with tabs[7]:
 # --- TAB 8: TAGESABSCHLUSS ---
 with tabs[8]:
     st.subheader("🔍 Tagesabschluss & Endkontrolle")
-    
     m = st.session_state['meals']
     d = st.session_state['drinks']
     w = st.session_state['workout']
     
-    # Nährwerte Getränke berechnen
     whey_kcal = d['whey_scoops'] * 120
     whey_prot = d['whey_scoops'] * 30
     
     total_drink_kcal = whey_kcal + d['sonstiges_kcal']
     total_drink_prot = whey_prot + d['sonstiges_prot']
     
-    # Nährwerte Mahlzeiten berechnen
     snack_kcal = sum(s['kcal'] for s in m['snacks'])
     snack_prot = sum(s['prot'] for s in m['snacks'])
     
     total_kcal = m['fruehstueck']['kcal'] + m['mittagessen']['kcal'] + m['abendessen']['kcal'] + snack_kcal + total_drink_kcal
     total_prot = m['fruehstueck']['prot'] + m['mittagessen']['prot'] + m['abendessen']['prot'] + snack_prot + total_drink_prot
 
-    # Getränke-Zusammenfassung
     drink_list = []
     if d['wasser_soda'] > 0: drink_list.append(f"{d['wasser_soda']}L Wasser/Soda")
     if d['kaffee'] > 0: drink_list.append(f"{d['kaffee']}x Kaffee")
@@ -400,7 +450,6 @@ with tabs[8]:
     
     drink_summary = ", ".join(drink_list) if drink_list else "Keine gesonderten Getränke erfasst"
 
-    # Trainings-Zusammenfassung
     workout_list = []
     if w['schritte'] > 0: workout_list.append(f"{w['schritte']} Schritte")
     if w['zirkel_min'] > 0: workout_list.append(f"Zirkel {w['zirkel_min']}m ({w['zirkel_details']})")
@@ -464,7 +513,6 @@ with tabs[8]:
                 wb.save(EXCEL_FILE)
                 st.success(f"✅ Neue Excel erstellt und Eintrag gespeichert!")
 
-    # --- DOWNLOAD BUTTON FÜR DEINEN LAPTOP ---
     if os.path.exists(EXCEL_FILE):
         with open(EXCEL_FILE, "rb") as file:
             st.download_button(
