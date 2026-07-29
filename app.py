@@ -12,7 +12,7 @@ import datetime
 # DEIN API-KEY HIER EINTRAGEN:
 # =========================================================
 GEMINI_API_KEY = "AQ.Ab8RN6JBdMOINycPw0LdsUMe_kH9YVbflYGVvh1T-Jc0XTGCmQ" 
-EXCEL_FILE = "daten.xlsx"
+EXCEL_FILE = "daten.xlsx"  # Hier ggf. den genauen Namen deiner Excel-Datei eintragen
 
 # ---------------------------------------------------------
 # SETUP & KONFIGURATION
@@ -63,10 +63,22 @@ def analyze_images_or_text(images, text_prompt):
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt = f"""
-    Du bist ein spezialisierter KI-Coach für Matthias.
-    Ziel: Body-Recomposition (Bauchfett reduzieren, Muskelmasse erhalten) unter STRENGER Einhaltung einer purinarmen Ernährung zur Gicht-Prävention.
-    
+    Guten Morgen,
+
+    Mein Name ist Matthias. Ich habe immer wieder Probleme mit Gichtschüben. Daher haben wir ein Gichttagebuch angefangen. Mein Ziel ist eine Body-Recomposition: Mein Gewicht darf stabil bleiben oder leicht steigen, der Fokus liegt aber auf der gezielten Reduktion des Bauchfetts bei gleichzeitigem Erhalt der gesamten Muskelmasse, unter strikter Einhaltung purinarmer Ernährung (Gicht-Prävention). Wir kombinieren in unserem Tagebuch Körperwerte, Essen, Getränke, Training und Subs.
+
     Analysiere diese(s) Bild(er) / diesen Text ({text_prompt}). Wenn mehrere Bilder vorhanden sind, kombiniere alle erfassten Mahlzeiten/Daten zu einer Gesamtsumme bzw. Auswertung.
+
+    Du analysierst diese Mahlzeiten auf KCAL, Protein und vergibst für jede Mahlzeit genau einen Ampel-Wert (Dropdown: grün, gelb, rot) nach folgender fester Logik:
+    - GRÜN: Vegetarisch oder rein purinarm (z. B. Milchprodukte, Eier, Gemüse, Obst, Haferflocken).
+    - GELB: Hühnchen / Geflügel (moderate Purine).
+    - ROT: Alle anderen Fleischsorten (z. B. Rind, Schwein, Fisch/Meeresfrüchte – stark purinhaltig).
+
+    Der allgemeine "Gicht Status" am Ende des Tages richtet sich nach den vergebenen Ampeln der Mahlzeiten (wenn alles grün/gelb bleibt, ist der Status grün/gelb; so bald rotes Fleisch dabei ist, schlägt der Gicht-Status entsprechend an).
+
+    Zu jeder Mahlzeit gibst du mir eine Notiz – überlege dir was. Fokus auf Gicht, aber es können auch motivierende oder mahnende Worte sein. 
+    Wenn es eine Waage ist: Lies Gewicht, KFA und Skelettmuskelmasse ab. Setze gicht_bewertung auf "grün" und erstelle ein motivierendes Feedback.
+
     Gib das Ergebnis STRENG im folgenden JSON-Format zurück:
     {{
         "gewicht": float oder null,
@@ -78,12 +90,6 @@ def analyze_images_or_text(images, text_prompt):
         "gicht_bewertung": "rot" oder "gelb" oder "grün",
         "mahlzeit_notiz": "Kurze Notiz/Feedback zur Mahlzeit mit Fokus auf Gicht, Purine, Motivation oder Mahnung."
     }}
-    
-    Regeln für Gicht-Bewertung (Purin-Gehalt):
-    - "rot": Hoher Puringehalt / Gichtgefahr (Innereien, Meeresfrüchte, fettreiches Fleisch, Hefe, Bier).
-    - "gelb": Moderater Puringehalt (mageres Fleisch, Geflügel, Fisch, Hülsenfrüchte in Grenzen).
-    - "grün": Purinarm / Gichtfreundlich (Eier, Quark/Topfen, Milchprodukte, meistes Gemüse, Nüsse, Iso Clear/Whey).
-    - Wenn es eine Waage ist: Lies Gewicht, KFA und Skelettmuskelmasse ab. Setze gicht_bewertung auf "grün" und erstelle ein motivierendes Feedback.
     """
     
     contents = [prompt]
@@ -92,7 +98,7 @@ def analyze_images_or_text(images, text_prompt):
             contents.append(img)
         
     response = client.models.generate_content(
-        model="gemini-3-flash-preview",
+        model="gemini-2.5-flash",
         contents=contents,
         config=types.GenerateContentConfig(response_mime_type="application/json")
     )
@@ -104,7 +110,7 @@ def analyze_workout(images, text_prompt):
     prompt = f"""
     Du bist der persönliche Fitness-Coach von Matthias.
     Analysiere diese(s) Bild(er) (Workout-Screenshot, Fitness-Tracker, E-Bike App) und/oder diesen Text: {text_prompt}.
-    Fasse ALLE erkennbaren Trainingsleistungen zusammen.
+    Fasse ALLE erkennbaren Trainingsleistungen zusammen. Gib mir Notizen, die motivierend sein sollen.
     Gib das Ergebnis STRENG im folgenden JSON-Format zurück:
     {{
         "schritte": int oder 0,
@@ -122,7 +128,7 @@ def analyze_workout(images, text_prompt):
             contents.append(img)
         
     response = client.models.generate_content(
-        model="gemini-3-flash-preview",
+        model="gemini-2.5-flash",
         contents=contents,
         config=types.GenerateContentConfig(response_mime_type="application/json")
     )
@@ -270,7 +276,6 @@ with tabs[6]:
             pil_imgs = [Image.open(f) for f in imgs_tr] if imgs_tr else []
             res_tr = analyze_workout(pil_imgs, txt_tr)
             
-            # Werte in session state übernehmen
             st.session_state['workout']['schritte'] = res_tr.get('schritte') or st.session_state['workout']['schritte']
             st.session_state['workout']['zirkel_min'] = res_tr.get('zirkel_min') or st.session_state['workout']['zirkel_min']
             st.session_state['workout']['zirkel_details'] = res_tr.get('zirkel_details') or st.session_state['workout']['zirkel_details']
@@ -351,7 +356,6 @@ with tabs[7]:
 
     st.markdown("---")
     
-    # Automatische Zusammenfassung für die Excel-Notiz
     descriptions = []
     if m['fruehstueck']['desc']: descriptions.append(f"Frühstück: {m['fruehstueck']['desc']} [{m['fruehstueck']['gicht'].upper()}]")
     if m['mittagessen']['desc']: descriptions.append(f"Mittag: {m['mittagessen']['desc']} [{m['mittagessen']['gicht'].upper()}]")
@@ -379,7 +383,7 @@ with tabs[7]:
         
         notizen = st.text_area("Generierte Tagesnotiz für Excel", value=full_notes, height=120)
         
-        if st.form_submit_button("🚀 Jetzt final in Excel speichern"):
+        if st.form_submit_button("🚀 In Excel speichern & Download vorbereiten"):
             if os.path.exists(EXCEL_FILE):
                 try:
                     wb = load_workbook(EXCEL_FILE)
@@ -390,4 +394,20 @@ with tabs[7]:
                 except Exception as e:
                     st.error(f"Fehler beim Speichern: {e}")
             else:
-                st.error(f"Datei '{EXCEL_FILE}' nicht gefunden!")
+                from openpyxl import Workbook
+                wb = Workbook()
+                ws = wb.active
+                ws.append([str(datum), g_val, k_val, m_val, kc_val, pr_val, notizen])
+                wb.save(EXCEL_FILE)
+                st.success(f"✅ Neue Excel erstellt und Eintrag gespeichert!")
+
+    # --- DOWNLOAD BUTTON FÜR DEINEN LAPTOP ---
+    if os.path.exists(EXCEL_FILE):
+        with open(EXCEL_FILE, "rb") as file:
+            st.download_button(
+                label="📥 Aktuelle Excel-Datei auf Laptop herunterladen",
+                data=file,
+                file_name=EXCEL_FILE,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                type="primary"
+            )
