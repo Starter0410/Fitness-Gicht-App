@@ -110,7 +110,6 @@ def analyze_images_or_text(images, text_prompt):
             text_res = text_res[:-3]
         return json.loads(text_res.strip())
     except Exception as e:
-        # Fallback falls JSON-Parsing scheitert
         return {
             "gewicht": None, "kfa": None, "skelettmuskel": None,
             "kcal": 250, "protein": 5, "beschreibung": text_prompt,
