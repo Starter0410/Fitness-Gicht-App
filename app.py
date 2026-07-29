@@ -172,20 +172,16 @@ with tabs[0]:
             df = pd.read_excel(EXCEL_FILE)
             
             if not df.empty:
-                # Spaltennamen bereinigen
                 df.columns = [str(c).strip() for c in df.columns]
                 
-                # Spalte 'Skel.Musk' für die Anzeige im Diagramm schick ausschreiben
                 if 'Skel.Musk' in df.columns:
                     df.rename(columns={'Skel.Musk': 'Skelettmuskel (%)'}, inplace=True)
                 
-                # Zahlenkonvertierung für wichtige Spalten erzwingen
                 numeric_cols = ['KG', 'KFA', 'Skelettmuskel (%)', 'KCAL', 'Prot', 'Schritte']
                 for col in numeric_cols:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-                # Datums-Spalte verarbeiten
                 date_col = None
                 for c in df.columns:
                     if 'datum' in c.lower() or 'date' in c.lower():
@@ -194,13 +190,10 @@ with tabs[0]:
                 
                 if date_col:
                     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                    df = df.sort_values(by=date_col, ascending=False) # Neueste zuerst für Wochenbilanz
+                    df = df.sort_values(by=date_col, ascending=False)
                     df['Monat-Jahr'] = df[date_col].dt.strftime('%Y-%m')
                     
-                    # --- NEU: WOCHEN- & MONATSBILANZ BOX ---
                     st.markdown("### 📊 Aktuelle Bilanzen (Durchschnitte)")
-                    
-                    # Die letzten 7 Tage berechnen
                     recent_7 = df.head(7)
                     avg_7_kcal = int(recent_7['KCAL'].mean()) if 'KCAL' in recent_7.columns and not recent_7['KCAL'].dropna().empty else 0
                     avg_7_prot = int(recent_7['Prot'].mean()) if 'Prot' in recent_7.columns and not recent_7['Prot'].dropna().empty else 0
@@ -213,7 +206,6 @@ with tabs[0]:
 
                     st.markdown("---")
 
-                    # Filter UI für Diagramme
                     verfuegbare_monate = sorted(df['Monat-Jahr'].dropna().unique(), reverse=True)
                     if verfuegbare_monate:
                         selected_month = st.selectbox(
@@ -226,14 +218,12 @@ with tabs[0]:
                             df_filtered = df
                     else:
                         df_filtered = df
-
                 else:
                     df_filtered = df
 
                 st.success(f"📊 {len(df_filtered)} Datensätze in der Auswertung aktiv.")
                 x_col = date_col if date_col else None
 
-                # 1. Körperwerte
                 st.markdown("### 🧬 Körperwerte (Body Recomp)")
                 col_k1, col_k2, col_k3 = st.columns(3)
                 with col_k1:
@@ -250,8 +240,6 @@ with tabs[0]:
                         st.line_chart(df_filtered.set_index(x_col)['Skelettmuskel (%)'] if x_col else df_filtered['Skelettmuskel (%)'])
 
                 st.markdown("---")
-
-                # 2. Schritte
                 st.markdown("### 🚶‍♂️ Schritte-Verlauf (Ziel: 10.000 Schritte)")
                 if 'Schritte' in df_filtered.columns:
                     chart_data = df_filtered[[date_col, 'Schritte']].copy() if date_col else pd.DataFrame({'Schritte': df_filtered['Schritte']})
@@ -261,8 +249,6 @@ with tabs[0]:
                     st.line_chart(chart_data)
 
                 st.markdown("---")
-
-                # 3. Kalorien & Protein
                 col_n1, col_n2 = st.columns(2)
                 with col_n1:
                     st.markdown("### 🥗 Kalorien-Trend (kcal)")
@@ -278,8 +264,6 @@ with tabs[0]:
                         st.line_chart(pr_data)
 
                 st.markdown("---")
-
-                # 4. Gicht-Status Auswertung
                 status_col = None
                 for c in df_filtered.columns:
                     if 'gicht' in c.lower() or 'status' in c.lower() or 'ampel' in c.lower():
@@ -340,17 +324,20 @@ with tabs[1]:
 def render_meal_tab(tab_name, meal_key):
     st.subheader(f"Mahlzeit erfassen: {tab_name}")
     
-    # NEU: Schnell-Auswahl für Favoriten beim Frühstück
     if meal_key == 'fruehstueck':
         st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
         fav_wahl = st.selectbox(
             "Wähle ein oft gegessenes Frühstück:", 
-            ["-- Manuell / Foto eingeben --", "Quarkbrot mit Haferflocken & Beeren", "Protein-Porridge mit Joghurt"]
+            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"]
         )
-        if fav_wahl == "Quarkbrot mit Haferflocken & Beeren":
-            st.session_state['meals'][meal_key] = {'kcal': 450, 'prot': 35, 'desc': 'Quarkbrot mit Haferflocken & Beeren', 'gicht': 'grün', 'notiz': 'Perfekter purinarmer Start mit viel Protein!'}
-        elif fav_wahl == "Protein-Porridge mit Joghurt":
-            st.session_state['meals'][meal_key] = {'kcal': 400, 'prot': 30, 'desc': 'Protein-Porridge mit Joghurt', 'gicht': 'grün', 'notiz': 'Guter Eiweißgehalt, ideal für den Muskelerhalt.'}
+        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
+            st.session_state['meals'][meal_key] = {
+                'kcal': 455, 
+                'prot': 45, 
+                'desc': 'Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)', 
+                'gicht': 'grün', 
+                'notiz': 'Hervorragender proteinreicher und purinarmer Start in den Tag!'
+            }
         st.markdown("---")
 
     imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
@@ -398,8 +385,7 @@ with tabs[5]:
                 'desc': res.get('beschreibung', txt_s),
                 'gicht': res.get('gicht_bewertung', 'grün'),
                 'notiz': res.get('mahlzeit_notiz', '')
-            }
-            )
+            })
             st.success("Snack zur Tagesliste hinzugefügt!")
 
     if st.session_state['meals']['snacks']:
