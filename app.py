@@ -12,7 +12,7 @@ import datetime
 # DEIN API-KEY HIER EINTRAGEN:
 # =========================================================
 GEMINI_API_KEY = "AQ.Ab8RN6JBdMOINycPw0LdsUMe_kH9YVbflYGVvh1T-Jc0XTGCmQ" 
-EXCEL_FILE = "daten.xlsx"  # Hier ggf. den genauen Namen deiner Excel-Datei eintragen
+EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"  # Hier ggf. den genauen Namen deiner Excel-Datei eintragen
 
 # ---------------------------------------------------------
 # SETUP & KONFIGURATION
