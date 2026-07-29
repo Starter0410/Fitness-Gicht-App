@@ -98,7 +98,7 @@ def analyze_images_or_text(images, text_prompt):
             contents.append(img)
         
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.0-flash",
         contents=contents,
         config=types.GenerateContentConfig(response_mime_type="application/json")
     )
@@ -128,7 +128,7 @@ def analyze_workout(images, text_prompt):
             contents.append(img)
         
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-2.0-flash",
         contents=contents,
         config=types.GenerateContentConfig(response_mime_type="application/json")
     )
