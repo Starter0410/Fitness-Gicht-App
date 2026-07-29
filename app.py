@@ -172,19 +172,40 @@ with tabs[0]:
             df = pd.read_excel(EXCEL_FILE)
             
             if not df.empty:
-                st.success(f"📊 {len(df)} Datensätze erfolgreich aus deiner Historie geladen!")
-                
                 # Spaltennamen bereinigen
                 df.columns = [str(c).strip() for c in df.columns]
                 
-                # Zahlenkonvertierung für wichtige Spalten erzwingen, falls Excel sie als Text speichert
+                # Zahlenkonvertierung für wichtige Spalten erzwingen
                 numeric_cols = ['KG', 'KFA', 'Skel.Musk', 'KCAL', 'Prot', 'Schritte']
                 for col in numeric_cols:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-                # X-Achse definieren (Datum, wenn vorhanden, sonst Index)
-                x_col = 'Datum' if 'Datum' in df.columns else None
+                # Datums-Spalte verarbeiten (Monatsfilter ermöglichen)
+                date_col = None
+                for c in df.columns:
+                    if 'datum' in c.lower() or 'date' in c.lower():
+                        date_col = c
+                        break
+                
+                if date_col:
+                    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
+                    df['Monat-Jahr'] = df[date_col].dt.strftime('%Y-%m')
+                    
+                    # Filter UI oben im Statistik-Tab
+                    verfuegbare_monate = sorted(df['Monat-Jahr'].dropna().unique(), reverse=True)
+                    if verfuegbare_monate:
+                        selected_month = st.selectbox(
+                            "📅 Nach Monat filtern (Alle Statistiken passen sich an):", 
+                            ["Alle Monate"] + list(verfuegbare_monate)
+                        )
+                        if selected_month != "Alle Monate":
+                            df = df[df['Monat-Jahr'] == selected_month]
+
+                st.success(f"📊 {len(df)} Datensätze in der Auswertung aktiv.")
+
+                # X-Achse definieren
+                x_col = date_col if date_col else None
 
                 # 1. Körperwerte einzeln oder kombiniert anzeigen
                 st.markdown("### 🧬 Körperwerte (Body Recomp)")
@@ -210,10 +231,9 @@ with tabs[0]:
                 # 2. Schritte-Verlauf mit Ziel-Linie (10.000 Schritte)
                 st.markdown("### 🚶‍♂️ Schritte-Verlauf (Ziel: 10.000 Schritte)")
                 if 'Schritte' in df.columns:
-                    chart_data = df[['Datum', 'Schritte']].copy() if x_col else pd.DataFrame({'Schritte': df['Schritte']})
-                    if x_col:
-                        chart_data = chart_data.set_index('Datum')
-                    # Wir fügen eine virtuelle Ziel-Spalte mit 10.000 hinzu, damit man die Linie sieht
+                    chart_data = df[[date_col, 'Schritte']].copy() if date_col else pd.DataFrame({'Schritte': df['Schritte']})
+                    if date_col:
+                        chart_data = chart_data.set_index(date_col)
                     chart_data['Ziel (10k)'] = 10000
                     st.line_chart(chart_data)
 
@@ -225,7 +245,7 @@ with tabs[0]:
                     st.markdown("### 🥗 Kalorien-Trend (kcal)")
                     st.markdown("*Ziel-Korridor: ~2.200 - 2.400 kcal*")
                     if 'KCAL' in df.columns:
-                        kc_data = df.set_index(x_col)[['KCAL']].copy() if x_col else pd.DataFrame({'KCAL': df['KCAL']})
+                        kc_data = df.set_index(date_col)[['KCAL']].copy() if date_col else pd.DataFrame({'KCAL': df['KCAL']})
                         kc_data['Ziel (2300 kcal)'] = 2300
                         st.line_chart(kc_data)
                 
@@ -233,23 +253,29 @@ with tabs[0]:
                     st.markdown("### 🥩 Protein-Trend (g)")
                     st.markdown("*Ziel-Korridor: min. 140 - 150g*")
                     if 'Prot' in df.columns:
-                        pr_data = df.set_index(x_col)[['Prot']].copy() if x_col else pd.DataFrame({'Prot': df['Prot']})
+                        pr_data = df.set_index(date_col)[['Prot']].copy() if date_col else pd.DataFrame({'Prot': df['Prot']})
                         pr_data['Ziel (145g)'] = 145
                         st.line_chart(pr_data)
 
                 st.markdown("---")
 
-                # 4. Gicht-Status Auswertung & Ampel-Zählung
-                status_col = 'Gicht Status' if 'Gicht Status' in df.columns else None
+                # 4. Gicht-Status Auswertung & Ampel-Zählung (Automatische Spaltensuche)
+                status_col = None
+                for c in df.columns:
+                    if 'gicht' in c.lower() or 'status' in c.lower() or 'ampel' in c.lower():
+                        status_col = c
+                        break
+                
                 if status_col:
-                    st.markdown("### 🛡️ Gicht-Ampel Historie & Auswertung")
-                    counts = df[status_col].value_counts()
+                    st.markdown(f"### 🛡️ Gicht-Ampel Historie & Auswertung (Spalte: {status_col})")
                     
-                    # Werte sicher auslesen
-                    green_count = counts.get('grün', 0) + counts.get('Gruen', 0)
-                    yellow_count = counts.get('gelb', 0)
-                    red_count = counts.get('rot', 0)
-                    total_days = len(df)
+                    # Werte vereinheitlichen (kleinschreiben, um Leerzeichen bereinigen)
+                    cleaned_status = df[status_col].astype(str).str.lower().str.strip()
+                    
+                    green_count = cleaned_status.str.contains('grün|gruen|green|🟢').sum()
+                    yellow_count = cleaned_status.str.contains('gelb|yellow|🟡').sum()
+                    red_count = cleaned_status.str.contains('rot|red|🔴').sum()
+                    total_filtered_days = len(df)
                     
                     # Metriken anzeigen
                     am_c1, am_c2, am_c3 = st.columns(3)
@@ -258,14 +284,20 @@ with tabs[0]:
                     am_c3.metric("🔴 Rote Tage (Vorsicht)", f"{red_count}")
                     
                     # Intelligentes Feedback
-                    if red_count == 0 and total_days > 0:
-                        st.success("🌟 Phänomenal! Bisher absolut 0 rote Tage. Perfekter Schutz vor Gichtschüben!")
-                    elif red_count > (total_days * 0.2):
-                        st.warning("⚠️ Achtung: Du hast verhältnismäßig viele rote Tage dabei. Achte etwas mehr auf purinarme Alternativen bei Fleisch & Fisch.")
+                    if red_count == 0 and total_filtered_days > 0:
+                        st.success("🌟 Phänomenal! Im gewählten Zeitraum absolut 0 rote Tage. Perfekter Schutz vor Gichtschüben!")
+                    elif red_count > (total_filtered_days * 0.2):
+                        st.warning("⚠️ Achtung: Im gewählten Zeitraum sind verhältnismäßig viele rote Tage dabei. Achte etwas mehr auf purinarme Alternativen.")
                     else:
                         st.info("👍 Gute Balance! Die roten Tage halten sich stark in Grenzen, weiter so.")
                         
-                    st.bar_chart(counts)
+                    # Kleines Balkendiagramm für die Counts
+                    counts_df = pd.DataFrame({
+                        'Anzahl Tage': [green_count, yellow_count, red_count]
+                    }, index=['Grün', 'Gelb', 'Rot'])
+                    st.bar_chart(counts_df)
+                else:
+                    st.info("Es wurde keine spezifische Gicht-Status-Spalte in der Excel gefunden (wird beim Tagesabschluss automatisch mitgeschrieben).")
 
             else:
                 st.info("Deine Excel-Datei ist noch leer.")
