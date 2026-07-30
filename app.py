@@ -163,11 +163,11 @@ def analyze_workout(images, text_prompt):
 
 def display_gicht_badge(status, notiz=""):
     if status == "rot":
-        st.error(f"🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *{notiz}*")
+        st.error("🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *" + notiz + "*")
     elif status == "gelb":
-        st.warning(f"🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *{notiz}*")
+        st.warning("🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *" + notiz + "*")
     else:
-        st.success(f"🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *{notiz}*")
+        st.success("🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *" + notiz + "*")
 
 def show_image_previews(files):
     if files:
@@ -196,10 +196,51 @@ def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
     dashoffset = 251.2 * (1 - pct)
     pct_int = int(pct * 100)
     
-    svg_code = f"""
-    <div style='background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);'>
-        <h4 style='margin: 0 0 10px 0; color: #1e293b; font-size: 16px;'>{title}</h4>
-        <svg viewBox='0 0 200 110' style='width: 100%; max-width: 160px; height: auto;'>
-            <path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='#f1f5f9' stroke-width='16' stroke-linecap='round'/>
-            <path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='{color}' stroke-width='16' stroke-linecap='round'
-                  stroke-dasharray='25
+    svg_code = (
+        "<div style='background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);'>"
+        f"<h4 style='margin: 0 0 10px 0; color: #1e293b; font-size: 16px;'>{title}</h4>"
+        "<svg viewBox='0 0 200 110' style='width: 100%; max-width: 160px; height: auto;'>"
+        "<path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='#f1f5f9' stroke-width='16' stroke-linecap='round'/>"
+        f"<path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='{color}' stroke-width='16' stroke-linecap='round' "
+        f"stroke-dasharray='251.2' stroke-dashoffset='{dashoffset}'/>"
+        f"<text x='100' y='75' text-anchor='middle' font-size='24' font-weight='bold' fill='#0f172a'>{current}</text>"
+        f"<text x='100' y='95' text-anchor='middle' font-size='11' fill='#64748b'>Ziel: {target} {unit}</text>"
+        "</svg>"
+        f"<div style='margin-top: 8px; font-size: 13px; font-weight: 600; color: {color};'>{pct_int}% erreicht</div>"
+        "</div>"
+    )
+    st.markdown(svg_code, unsafe_allow_html=True)
+
+def render_back_button():
+    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
+        st.session_state['nav_tab'] = "🏠 Startseite"
+        st.rerun()
+    st.markdown("---")
+
+# ---------------------------------------------------------
+# SIDEBAR NAVIGATION
+# ---------------------------------------------------------
+tabs = [
+    "🏠 Startseite", 
+    "⚖️ Waage", 
+    "🍳 Frühstück", 
+    "🍲 Mittag", 
+    "🌙 Abend", 
+    "🍏 Snacks", 
+    "🥤 Getränke", 
+    "🏋️‍♂️ Training", 
+    "✅ Abschluss",
+    "📈 Statistik & Bilanz"
+]
+
+with st.sidebar:
+    st.title("🏋️‍♂️ Fitness & Gicht")
+    st.markdown("---")
+    
+    selected_tab = st.radio("Navigation", tabs, index=tabs.index(st.session_state['nav_tab']) if st.session_state['nav_tab'] in tabs else 0, label_visibility="collapsed")
+    st.session_state['nav_tab'] = selected_tab
+    
+    st.markdown("---")
+    st.caption("Body Recomp & Purinarm-Tracking")
+
+#
