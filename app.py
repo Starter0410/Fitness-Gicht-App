@@ -139,4 +139,68 @@ def analyze_images_or_text(images, text_prompt):
             "gicht_bewertung": "grün", "mahlzeit_notiz": f"Erfasst via Text (Fallback: {e})"
         }
 
-def analyze_workout(images, text
+def analyze_workout(images, text_prompt):
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    prompt = f"""
+    Du bist der Fitness-Coach von Matthias. Analysiere diese Aktivität: {text_prompt}.
+    Gib das Ergebnis STRENG im JSON-Format zurück:
+    {{
+        "schritte": 0,
+        "zirkel_min": 0,
+        "zirkel_details": "Übungen/Wdh",
+        "bike_km": 0.0,
+        "bike_modus": "Modus",
+        "sonstiges": "Sonstiges",
+        "workout_notiz": "Motivierender Satz."
+    }}
+    """
+    contents = [prompt]
+    if images:
+        for img in images:
+            contents.append(img)
+        
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=contents,
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        return json.loads(clean_json_response(response.text))
+    except Exception:
+        return {
+            "schritte": 0, "zirkel_min": 0, "zirkel_details": "",
+            "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": "Starke Leistung!"
+        }
+
+def display_gicht_badge(status, notiz=""):
+    if status == "rot":
+        st.error("🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *" + notiz + "*")
+    elif status == "gelb":
+        st.warning("🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *" + notiz + "*")
+    else:
+        st.success("🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *" + notiz + "*")
+
+def show_image_previews(files):
+    if files:
+        cols = st.columns(min(len(files), 4))
+        for idx, file in enumerate(files):
+            cols[idx % 4].image(Image.open(file), use_container_width=True)
+
+def get_todays_totals():
+    m = st.session_state['meals']
+    d = st.session_state['drinks']
+    
+    whey_kcal = d['whey_scoops'] * 120
+    whey_prot = d['whey_scoops'] * 30
+    total_drink_kcal = whey_kcal + d['sonstiges_kcal']
+    total_drink_prot = whey_prot + d['sonstiges_prot']
+    
+    snack_kcal = sum([s['kcal'] for s in m['snacks']])
+    snack_prot = sum([s['prot'] for s in m['snacks']])
+    
+    total_kcal = m['fruehstueck']['kcal'] + m['mittagessen']['kcal'] + m['abendessen']['kcal'] + snack_kcal + total_drink_kcal
+    total_prot = m['fruehstueck']['prot'] + m['mittagessen']['prot'] + m['abendessen']['prot'] + snack_prot + total_drink_prot
+    return total_kcal, total_prot
+
+def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
+    pct = min(float(current) / float(target), 1.0) if
