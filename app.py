@@ -217,30 +217,33 @@ def render_back_button():
         st.rerun()
     st.markdown("---")
 
-# ---------------------------------------------------------
-# SIDEBAR NAVIGATION
-# ---------------------------------------------------------
-tabs = [
-    "🏠 Startseite", 
-    "⚖️ Waage", 
-    "🍳 Frühstück", 
-    "🍲 Mittag", 
-    "🌙 Abend", 
-    "🍏 Snacks", 
-    "🥤 Getränke", 
-    "🏋️‍♂️ Training", 
-    "✅ Abschluss",
-    "📈 Statistik & Bilanz"
-]
-
-with st.sidebar:
-    st.title("🏋️‍♂️ Fitness & Gicht")
-    st.markdown("---")
+def render_meal_page(tab_name, meal_key):
+    render_back_button()
+    st.subheader(f"Mahlzeit erfassen: {tab_name}")
     
-    selected_tab = st.radio("Navigation", tabs, index=tabs.index(st.session_state['nav_tab']) if st.session_state['nav_tab'] in tabs else 0, label_visibility="collapsed")
-    st.session_state['nav_tab'] = selected_tab
-    
-    st.markdown("---")
-    st.caption("Body Recomp & Purinarm-Tracking")
+    if meal_key == 'fruehstueck':
+        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
+        fav_wahl = st.selectbox(
+            "Wähle ein oft gegessenes Frühstück:", 
+            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"],
+            key=f"{meal_key}_fav_select"
+        )
+        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
+            st.session_state['meals'][meal_key] = {
+                'kcal': 455, 
+                'prot': 45, 
+                'desc': 'Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)', 
+                'gicht': 'grün', 
+                'notiz': 'Hervorragender proteinreicher und purinarmer Start in den Tag!'
+            }
+        st.markdown("---")
 
-#
+    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
+    show_image_previews(imgs)
+    
+    txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
+    
+    if st.button(f"🤖 {tab_name} analysieren", key=f"{meal_key}_btn", type="primary"):
+        if imgs or txt:
+            pil_imgs = [Image.open(f) for f in imgs] if imgs else []
+            res = analyze_images_or_text(pil_imgs, txt if txt else "Kein
