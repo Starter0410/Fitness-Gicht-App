@@ -206,14 +206,3 @@ def analyze_workout(images, text_prompt):
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         return json.loads(clean_json_response(response.text))
-    except Exception:
-        return {
-            "schritte": 0, "zirkel_min": 0, "zirkel_details": "",
-            "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": "Starke Leistung!"
-        }
-
-def display_gicht_badge(status, notiz=""):
-    if status == "rot":
-        st.error("🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *" + notiz + "*")
-    elif status == "gelb":
-        st.warning("🟡 **Moderat (Mittlerer P
