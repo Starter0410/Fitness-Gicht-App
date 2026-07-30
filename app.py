@@ -230,7 +230,6 @@ with st.sidebar:
     st.title("🏋️‍♂️ Fitness & Gicht")
     st.markdown("---")
     
-    # Synchronisation zwischen Radio-Auswahl und Session State
     selected_tab = st.radio("Navigation", tabs, index=tabs.index(st.session_state['nav_tab']) if st.session_state['nav_tab'] in tabs else 0, label_visibility="collapsed")
     st.session_state['nav_tab'] = selected_tab
     
@@ -259,4 +258,48 @@ if st.session_state['nav_tab'] == "🏠 Startseite":
         steps = st.session_state['workout']['schritte']
         render_gauge_svg(steps, 10000, "🚶 Schritte", "Steps", "#10b981")
 
-    st.markdown("---
+    st.markdown("---")
+    st.markdown("### 📱 Schnell-Übersicht & Navigation")
+    st.write("Wähle direkt einen Bereich aus:")
+
+    grid_cols = st.columns(3)
+    if grid_cols[0].button("⚖️ Waage", use_container_width=True):
+        st.session_state['nav_tab'] = "⚖️ Waage"
+        st.rerun()
+    if grid_cols[1].button("🍳 Frühstück", use_container_width=True):
+        st.session_state['nav_tab'] = "🍳 Frühstück"
+        st.rerun()
+    if grid_cols[2].button("🍲 Mittag", use_container_width=True):
+        st.session_state['nav_tab'] = "🍲 Mittag"
+        st.rerun()
+
+    grid_cols_2 = st.columns(3)
+    if grid_cols_2[0].button("🌙 Abend", use_container_width=True):
+        st.session_state['nav_tab'] = "🌙 Abend"
+        st.rerun()
+    if grid_cols_2[1].button("🍏 Snacks", use_container_width=True):
+        st.session_state['nav_tab'] = "🍏 Snacks"
+        st.rerun()
+    if grid_cols_2[2].button("🥤 Getränke", use_container_width=True):
+        st.session_state['nav_tab'] = "🥤 Getränke"
+        st.rerun()
+
+    grid_cols_3 = st.columns(3)
+    if grid_cols_3[0].button("🏋️‍♂️ Training", use_container_width=True):
+        st.session_state['nav_tab'] = "🏋️‍♂️ Training"
+        st.rerun()
+    if grid_cols_3[1].button("✅ Abschluss", use_container_width=True):
+        st.session_state['nav_tab'] = "✅ Abschluss"
+        st.rerun()
+    if grid_cols_3[2].button("📈 Statistik", use_container_width=True):
+        st.session_state['nav_tab'] = "📈 Statistik & Bilanz"
+        st.rerun()
+
+elif st.session_state['nav_tab'] == "⚖️ Waage":
+    st.subheader("⚖️ Waagen-Messung")
+    imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
+    show_image_previews(imgs_w)
+    
+    if imgs_w:
+        if st.button("🤖 Waage analysieren", type="primary"):
+            pil_imgs = [Image.open(f) for f in imgs_w]
