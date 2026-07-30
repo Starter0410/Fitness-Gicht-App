@@ -204,46 +204,4 @@ def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
         f"<path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='{color}' stroke-width='16' stroke-linecap='round' "
         f"stroke-dasharray='251.2' stroke-dashoffset='{dashoffset}'/>"
         f"<text x='100' y='75' text-anchor='middle' font-size='24' font-weight='bold' fill='#0f172a'>{current}</text>"
-        f"<text x='100' y='95' text-anchor='middle' font-size='11' fill='#64748b'>Ziel: {target} {unit}</text>"
-        "</svg>"
-        f"<div style='margin-top: 8px; font-size: 13px; font-weight: 600; color: {color};'>{pct_int}% erreicht</div>"
-        "</div>"
-    )
-    st.markdown(svg_code, unsafe_allow_html=True)
-
-def render_back_button():
-    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
-        st.session_state['nav_tab'] = "🏠 Startseite"
-        st.rerun()
-    st.markdown("---")
-
-def render_meal_page(tab_name, meal_key):
-    render_back_button()
-    st.subheader(f"Mahlzeit erfassen: {tab_name}")
-    
-    if meal_key == 'fruehstueck':
-        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
-        fav_wahl = st.selectbox(
-            "Wähle ein oft gegessenes Frühstück:", 
-            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"],
-            key=f"{meal_key}_fav_select"
-        )
-        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
-            st.session_state['meals'][meal_key] = {
-                'kcal': 455, 
-                'prot': 45, 
-                'desc': 'Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)', 
-                'gicht': 'grün', 
-                'notiz': 'Hervorragender proteinreicher und purinarmer Start in den Tag!'
-            }
-        st.markdown("---")
-
-    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
-    show_image_previews(imgs)
-    
-    txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
-    
-    if st.button(f"🤖 {tab_name} analysieren", key=f"{meal_key}_btn", type="primary"):
-        if imgs or txt:
-            pil_imgs = [Image.open(f) for f in imgs] if imgs else []
-            res = analyze_images_or_text(pil_imgs, txt if txt else "Kein
+        f"<text x='100'
