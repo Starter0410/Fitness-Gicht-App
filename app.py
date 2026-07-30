@@ -257,4 +257,86 @@ if selected_tab == "🏠 Startseite":
 
 elif selected_tab == "⚖️ Waage":
     st.subheader("⚖️ Waagen-Messung")
-    imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w
+    imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
+    show_image_previews(imgs_w)
+    
+    if imgs_w:
+        if st.button("🤖 Waage analysieren", type="primary"):
+            pil_imgs = [Image.open(f) for f in imgs_w]
+            res = analyze_images_or_text(pil_imgs, "Waagen Display")
+            st.session_state['waage_data'] = res
+            st.success("Waagendaten erkannt!")
+
+    w_data = st.session_state.get('waage_data', {})
+    with st.form("waage_form"):
+        col1, col2, col3 = st.columns(3)
+        g = col1.number_input("Gewicht (kg)", value=float(w_data.get('gewicht') or 0.0), step=0.1)
+        k = col2.number_input("KFA (%)", value=float(w_data.get('kfa') or 0.0), step=0.1)
+        m = col3.number_input("Skelettmuskel (%)", value=float(w_data.get('skelettmuskel') or 0.0), step=0.1)
+        if st.form_submit_button("💾 Waagendaten merken"):
+            st.session_state['saved_g'] = g
+            st.session_state['saved_k'] = k
+            st.session_state['saved_m'] = m
+            st.success("Waagendaten im Zwischenspeicher gesichert!")
+
+def render_meal_page(tab_name, meal_key):
+    st.subheader(f"Mahlzeit erfassen: {tab_name}")
+    
+    if meal_key == 'fruehstueck':
+        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
+        fav_wahl = st.selectbox(
+            "Wähle ein oft gegessenes Frühstück:", 
+            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"],
+            key=f"{meal_key}_fav_select"
+        )
+        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
+            st.session_state['meals'][meal_key] = {
+                'kcal': 455, 
+                'prot': 45, 
+                'desc': 'Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)', 
+                'gicht': 'grün', 
+                'notiz': 'Hervorragender proteinreicher und purinarmer Start in den Tag!'
+            }
+        st.markdown("---")
+
+    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
+    show_image_previews(imgs)
+    
+    txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
+    
+    if st.button(f"🤖 {tab_name} analysieren", key=f"{meal_key}_btn", type="primary"):
+        if imgs or txt:
+            pil_imgs = [Image.open(f) for f in imgs] if imgs else []
+            res = analyze_images_or_text(pil_imgs, txt if txt else "Kein Text angegeben")
+            st.session_state['meals'][meal_key] = {
+                'kcal': int(res.get('kcal', 0)),
+                'prot': int(res.get('protein', 0)),
+                'desc': res.get('beschreibung', txt),
+                'gicht': res.get('gicht_bewertung', 'grün'),
+                'notiz': res.get('mahlzeit_notiz', '')
+            }
+            st.success(f"{tab_name} erfolgreich ausgewertet!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
+
+    current = st.session_state['meals'][meal_key]
+    if current['kcal'] > 0 or current['desc']:
+        st.info(f"**Erfasst:** {current['desc']} | **{current['kcal']} kcal** | **{current['prot']}g Protein**")
+        display_gicht_badge(current['gicht'], current.get('notiz', ''))
+
+if selected_tab == "🍳 Frühstück":
+    render_meal_page("Frühstück", "fruehstueck")
+elif selected_tab == "🍲 Mittag":
+    render_meal_page("Mittagessen", "mittagessen")
+elif selected_tab == "🌙 Abend":
+    render_meal_page("Abendessen", "abendessen")
+
+elif selected_tab == "🍏 Snacks":
+    st.subheader("🍏 Snacks & Zwischenmahlzeiten")
+    imgs_s = st.file_uploader("Foto(s) vom Snack", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
+    show_image_previews(imgs_s)
+    
+    txt_s = st.text_input("Oder Snack beschreiben", key="snack_txt")
+    
+    if st.button("🤖 Snack hinzufügen", type="primary"):
+        if imgs_s
