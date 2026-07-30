@@ -58,6 +58,16 @@ if 'workout' not in st.session_state:
 # ---------------------------------------------------------
 # HELFER-FUNKTIONEN (GEMINI PROMPTS)
 # ---------------------------------------------------------
+def clean_json_response(text_res):
+    text_res = text_res.strip()
+    if text_res.startswith("```json"):
+        text_res = text_res[7:]
+    elif text_res.startswith("```"):
+        text_res = text_res[3:]
+    if text_res.endswith("```"):
+        text_res = text_res[:-3]
+    return text_res.strip()
+
 def analyze_images_or_text(images, text_prompt):
     client = genai.Client(api_key=GEMINI_API_KEY)
     
@@ -100,14 +110,8 @@ def analyze_images_or_text(images, text_prompt):
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        text_res = response.text.strip()
-        if text_res.startswith("```json"):
-            text_res = text_res[7:]
-        if text_res.startswith("```"):
-            text_res = text_res[3:]
-        if text_res.endswith("```"):
-            text_res = text_res[:-3]
-        return json.loads(text_res.strip())
+        cleaned_text = clean_json_response(response.text)
+        return json.loads(cleaned_text)
     except Exception as e:
         return {
             "gewicht": None, "kfa": None, "skelettmuskel": None,
@@ -144,9 +148,45 @@ def analyze_workout(images, text_prompt):
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        text_res = response.text.strip()
-        if text_res.startswith("```json"):
-            text_res = text_res[7:]
-        if text_res.startswith("```"):
-            text_res = text_res[3:]
-        if text_res.endswith("
+        cleaned_text = clean_json_response(response.text)
+        return json.loads(cleaned_text)
+    except Exception:
+        return {
+            "schritte": 0, "zirkel_min": 0, "zirkel_details": "",
+            "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": "Starke Leistung!"
+        }
+
+def display_gicht_badge(status, notiz=""):
+    if status == "rot":
+        st.error(f"🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *{notiz}*")
+    elif status == "gelb":
+        st.warning(f"🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *{notiz}*")
+    else:
+        st.success(f"🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *{notiz}*")
+
+def show_image_previews(files):
+    if files:
+        cols = st.columns(min(len(files), 4))
+        for idx, file in enumerate(files):
+            cols[idx % 4].image(Image.open(file), use_container_width=True)
+
+def get_todays_totals():
+    m = st.session_state['meals']
+    d = st.session_state['drinks']
+    
+    whey_kcal = d['whey_scoops'] * 120
+    whey_prot = d['whey_scoops'] * 30
+    total_drink_kcal = whey_kcal + d['sonstiges_kcal']
+    total_drink_prot = whey_prot + d['sonstiges_prot']
+    snack_kcal = sum(s['kcal'] for s in m['snacks'])
+    snack_prot = sum(s['prot'] for s in m['snacks'])
+    
+    total_kcal = m['fruehstueck']['kcal'] + m['mittagessen']['kcal'] + m['abendessen']['kcal'] + snack_kcal + total_drink_kcal
+    total_prot = m['fruehstueck']['prot'] + m['mittagessen']['prot'] + m['abendessen']['prot'] + snack_prot + total_drink_prot
+    return total_kcal, total_prot
+
+# ---------------------------------------------------------
+# SIDEBAR NAVIGATION (VON OBEN NACH UNTEN)
+# ---------------------------------------------------------
+with st.sidebar:
+    st.title("🏋️‍♂️ Fitness & Gicht")
