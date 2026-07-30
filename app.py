@@ -188,12 +188,135 @@ def get_todays_totals():
 
 def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
     pct = min(float(current) / float(target), 1.0) if target > 0 else 0
+    dashoffset = 251.2 * (1 - pct)
+    pct_int = int(pct * 100)
     
     svg_code = f"""
-    <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-        <h4 style="margin: 0 0 10px 0; color: #1e293b; font-size: 16px;">{title}</h4>
-        <svg viewBox="0 0 200 110" style="width: 100%; max-width: 160px; height: auto;">
-            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#f1f5f9" stroke-width="16" stroke-linecap="round"/>
-            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="{color}" stroke-width="16" stroke-linecap="round"
-                  stroke-dasharray="251.2" stroke-dashoffset="{251.2 * (1 - pct)}"/>
-            <text x="100" y="75" text-anchor="middle" font-size="24" font-weight="bold" fill="#0f172a">{current}</text>
+    <div style='background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);'>
+        <h4 style='margin: 0 0 10px 0; color: #1e293b; font-size: 16px;'>{title}</h4>
+        <svg viewBox='0 0 200 110' style='width: 100%; max-width: 160px; height: auto;'>
+            <path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='#f1f5f9' stroke-width='16' stroke-linecap='round'/>
+            <path d='M 20 100 A 80 80 0 0 1 180 100' fill='none' stroke='{color}' stroke-width='16' stroke-linecap='round'
+                  stroke-dasharray='251.2' stroke-dashoffset='{dashoffset}'/>
+            <text x='100' y='75' text-anchor='middle' font-size='24' font-weight='bold' fill='#0f172a'>{current}</text>
+            <text x='100' y='95' text-anchor='middle' font-size='11' fill='#64748b'>Ziel: {target} {unit}</text>
+        </svg>
+        <div style='margin-top: 8px; font-size: 13px; font-weight: 600; color: {color};'>{pct_int}% erreicht</div>
+    </div>
+    """
+    st.markdown(svg_code, unsafe_allow_html=True)
+
+# ---------------------------------------------------------
+# SIDEBAR NAVIGATION
+# ---------------------------------------------------------
+with st.sidebar:
+    st.title("🏋️‍♂️ Fitness & Gicht")
+    st.markdown("---")
+    
+    tabs = [
+        "🏠 Startseite", 
+        "⚖️ Waage", 
+        "🍳 Frühstück", 
+        "🍲 Mittag", 
+        "🌙 Abend", 
+        "🍏 Snacks", 
+        "🥤 Getränke", 
+        "🏋️‍♂️ Training", 
+        "✅ Abschluss",
+        "📈 Statistik & Bilanz"
+    ]
+    
+    selected_tab = st.radio("Navigation", tabs, label_visibility="collapsed")
+    
+    st.markdown("---")
+    st.caption("Body Recomp & Purinarm-Tracking")
+
+# ---------------------------------------------------------
+# INHALTE DER SEITEN
+# ---------------------------------------------------------
+
+if selected_tab == "🏠 Startseite":
+    st.subheader("🏠 Tages-Dashboard")
+    st.write("Willkommen zurück, Matthias! Hier ist dein moderner Überblick über den heutigen Tag.")
+    
+    cur_kcal, cur_prot = get_todays_totals()
+    target_kcal = 2300 
+    target_prot = 145
+    
+    col_d1, col_d2, col_d3 = st.columns(3)
+    
+    with col_d1:
+        render_gauge_svg(cur_kcal, target_kcal, "🔥 Kalorien", "kcal", "#f97316")
+    with col_d2:
+        render_gauge_svg(cur_prot, target_prot, "🥩 Protein", "g", "#3b82f6")
+    with col_d3:
+        steps = st.session_state['workout']['schritte']
+        render_gauge_svg(steps, 10000, "🚶 Schritte", "Steps", "#10b981")
+
+    st.markdown("---")
+    st.markdown("### 🚀 Schnell-Navigation")
+    st.info("Klicke links in der Leiste auf die jeweilige Mahlzeit, das Training oder den Abschluss, um deine Daten zu pflegen.")
+
+elif selected_tab == "⚖️ Waage":
+    st.subheader("⚖️ Waagen-Messung")
+    imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
+    show_image_previews(imgs_w)
+    
+    if imgs_w:
+        if st.button("🤖 Waage analysieren", type="primary"):
+            pil_imgs = [Image.open(f) for f in imgs_w]
+            res = analyze_images_or_text(pil_imgs, "Waagen Display")
+            st.session_state['waage_data'] = res
+            st.success("Waagendaten erkannt!")
+
+    w_data = st.session_state.get('waage_data', {})
+    with st.form("waage_form"):
+        col1, col2, col3 = st.columns(3)
+        g = col1.number_input("Gewicht (kg)", value=float(w_data.get('gewicht') or 0.0), step=0.1)
+        k = col2.number_input("KFA (%)", value=float(w_data.get('kfa') or 0.0), step=0.1)
+        m = col3.number_input("Skelettmuskel (%)", value=float(w_data.get('skelettmuskel') or 0.0), step=0.1)
+        if st.form_submit_button("💾 Waagendaten merken"):
+            st.session_state['saved_g'] = g
+            st.session_state['saved_k'] = k
+            st.session_state['saved_m'] = m
+            st.success("Waagendaten im Zwischenspeicher gesichert!")
+
+def render_meal_page(tab_name, meal_key):
+    st.subheader(f"Mahlzeit erfassen: {tab_name}")
+    
+    if meal_key == 'fruehstueck':
+        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
+        fav_wahl = st.selectbox(
+            "Wähle ein oft gegessenes Frühstück:", 
+            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"],
+            key=f"{meal_key}_fav_select"
+        )
+        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
+            st.session_state['meals'][meal_key] = {
+                'kcal': 455, 
+                'prot': 45, 
+                'desc': 'Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)', 
+                'gicht': 'grün', 
+                'notiz': 'Hervorragender proteinreicher und purinarmer Start in den Tag!'
+            }
+        st.markdown("---")
+
+    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
+    show_image_previews(imgs)
+    
+    txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
+    
+    if st.button(f"🤖 {tab_name} analysieren", key=f"{meal_key}_btn", type="primary"):
+        if imgs or txt:
+            pil_imgs = [Image.open(f) for f in imgs] if imgs else []
+            res = analyze_images_or_text(pil_imgs, txt if txt else "Kein Text angegeben")
+            st.session_state['meals'][meal_key] = {
+                'kcal': int(res.get('kcal', 0)),
+                'prot': int(res.get('protein', 0)),
+                'desc': res.get('beschreibung', txt),
+                'gicht': res.get('gicht_bewertung', 'grün'),
+                'notiz': res.get('mahlzeit_notiz', '')
+            }
+            st.success(f"{tab_name} erfolgreich ausgewertet!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
