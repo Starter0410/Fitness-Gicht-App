@@ -210,6 +210,13 @@ def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
     """
     st.markdown(svg_code, unsafe_allow_html=True)
 
+# Hilfsfunktion für den Zurück-Button auf allen Unterseiten
+def render_back_button():
+    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
+        st.session_state['nav_tab'] = "🏠 Startseite"
+        st.rerun()
+    st.markdown("---")
+
 # ---------------------------------------------------------
 # SIDEBAR NAVIGATION
 # ---------------------------------------------------------
@@ -296,6 +303,7 @@ if st.session_state['nav_tab'] == "🏠 Startseite":
         st.rerun()
 
 elif st.session_state['nav_tab'] == "⚖️ Waage":
+    render_back_button()
     st.subheader("⚖️ Waagen-Messung")
     imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
     show_image_previews(imgs_w)
@@ -303,3 +311,155 @@ elif st.session_state['nav_tab'] == "⚖️ Waage":
     if imgs_w:
         if st.button("🤖 Waage analysieren", type="primary"):
             pil_imgs = [Image.open(f) for f in imgs_w]
+            res = analyze_images_or_text(pil_imgs, "Waagen Display")
+            st.session_state['waage_data'] = res
+            st.success("Waagendaten erkannt!")
+
+    w_data = st.session_state.get('waage_data', {})
+    with st.form("waage_form"):
+        col1, col2, col3 = st.columns(3)
+        g = col1.number_input("Gewicht (kg)", value=float(w_data.get('gewicht') or 0.0), step=0.1)
+        k = col2.number_input("KFA (%)", value=float(w_data.get('kfa') or 0.0), step=0.1)
+        m = col3.number_input("Skelettmuskel (%)", value=float(w_data.get('skelettmuskel') or 0.0), step=0.1)
+        if st.form_submit_button("💾 Waagendaten merken"):
+            st.session_state['saved_g'] = g
+            st.session_state['saved_k'] = k
+            st.session_state['saved_m'] = m
+            st.success("Waagendaten im Zwischenspeicher gesichert!")
+
+def render_meal_page(tab_name, meal_key):
+    render_back_button()
+    st.subheader(f"Mahlzeit erfassen: {tab_name}")
+    
+    if meal_key == 'fruehstueck':
+        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
+        fav_wahl = st.selectbox(
+            "Wähle ein oft gegessenes Frühstück:", 
+            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"],
+            key=f"{meal_key}_fav_select"
+        )
+        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
+            st.session_state['meals'][meal_key] = {
+                'kcal': 455, 
+                'prot': 45, 
+                'desc': 'Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)', 
+                'gicht': 'grün', 
+                'notiz': 'Hervorragender proteinreicher und purinarmer Start in den Tag!'
+            }
+        st.markdown("---")
+
+    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
+    show_image_previews(imgs)
+    
+    txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
+    
+    if st.button(f"🤖 {tab_name} analysieren", key=f"{meal_key}_btn", type="primary"):
+        if imgs or txt:
+            pil_imgs = [Image.open(f) for f in imgs] if imgs else []
+            res = analyze_images_or_text(pil_imgs, txt if txt else "Kein Text angegeben")
+            st.session_state['meals'][meal_key] = {
+                'kcal': int(res.get('kcal', 0)),
+                'prot': int(res.get('protein', 0)),
+                'desc': res.get('beschreibung', txt),
+                'gicht': res.get('gicht_bewertung', 'grün'),
+                'notiz': res.get('mahlzeit_notiz', '')
+            }
+            st.success(f"{tab_name} erfolgreich ausgewertet!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
+
+    current = st.session_state['meals'][meal_key]
+    if current['kcal'] > 0 or current['desc']:
+        st.info(f"**Erfasst:** {current['desc']} | **{current['kcal']} kcal** | **{current['prot']}g Protein**")
+        display_gicht_badge(current['gicht'], current.get('notiz', ''))
+
+if st.session_state['nav_tab'] == "🍳 Frühstück":
+    render_meal_page("Frühstück", "fruehstueck")
+elif st.session_state['nav_tab'] == "🍲 Mittag":
+    render_meal_page("Mittagessen", "mittagessen")
+elif st.session_state['nav_tab'] == "🌙 Abend":
+    render_meal_page("Abendessen", "abendessen")
+
+elif st.session_state['nav_tab'] == "🍏 Snacks":
+    render_back_button()
+    st.subheader("🍏 Snacks & Zwischenmahlzeiten")
+    imgs_s = st.file_uploader("Foto(s) vom Snack", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
+    show_image_previews(imgs_s)
+    
+    txt_s = st.text_input("Oder Snack beschreiben", key="snack_txt")
+    
+    if st.button("🤖 Snack hinzufügen", type="primary"):
+        if imgs_s or txt_s:
+            pil_imgs = [Image.open(f) for f in imgs_s] if imgs_s else []
+            res = analyze_images_or_text(pil_imgs, txt_s if txt_s else "Kein Text angegeben")
+            st.session_state['meals']['snacks'].append({
+                'kcal': int(res.get('kcal', 0)),
+                'prot': int(res.get('protein', 0)),
+                'desc': res.get('beschreibung', txt_s),
+                'gicht': res.get('gicht_bewertung', 'grün'),
+                'notiz': res.get('mahlzeit_notiz', '')
+            })
+            st.success("Snack zur Tagesliste hinzugefügt!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
+
+    if st.session_state['meals']['snacks']:
+        st.markdown("### 🍿 Heutige Snacks:")
+        for idx, s in enumerate(st.session_state['meals']['snacks'], 1):
+            st.write(f"**{idx}.** {s['desc']} — {s['kcal']} kcal | {s['prot']}g Protein")
+            display_gicht_badge(s['gicht'], s.get('notiz', ''))
+
+elif st.session_state['nav_tab'] == "🥤 Getränke":
+    render_back_button()
+    st.subheader("🥤 Getränke-Zähler")
+    d = st.session_state['drinks']
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        d['wasser_soda'] = st.number_input("💧 Wasser / Soda / Zitrone (Liter)", value=float(d['wasser_soda']), step=0.5)
+        d['kaffee'] = st.number_input("☕ Kaffee (Tassen)", value=int(d['kaffee']), step=1)
+    with col2:
+        d['whey_scoops'] = st.number_input("🐮 Whey / Iso Clear (Scoops)", value=int(d['whey_scoops']), step=1)
+        d['redbull'] = st.number_input("⚡ Red Bull (Dosen)", value=int(d['redbull']), step=1)
+        
+    st.markdown("---")
+    st.write("**🥤 Sonstiges Getränk:**")
+    d['sonstiges_txt'] = st.text_input("Name des Getränks", value=d['sonstiges_txt'])
+    cs1, cs2 = st.columns(2)
+    d['sonstiges_kcal'] = cs1.number_input("Kalorien (kcal)", value=int(d['sonstiges_kcal']), step=10)
+    d['sonstiges_prot'] = cs2.number_input("Protein (g)", value=int(d['sonstiges_prot']), step=1)
+
+elif st.session_state['nav_tab'] == "🏋️‍♂️ Training":
+    render_back_button()
+    st.subheader("🏋️‍♂️ Training & Aktivitäten erfassen")
+    imgs_tr = st.file_uploader("Screenshots hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="tr_imgs")
+    show_image_previews(imgs_tr)
+    
+    txt_tr = st.text_input("Oder Training beschreiben", key="tr_txt")
+    
+    if st.button("🤖 Training analysieren", type="primary"):
+        if imgs_tr or txt_tr:
+            pil_imgs = [Image.open(f) for f in imgs_tr] if imgs_tr else []
+            res_tr = analyze_workout(pil_imgs, txt_tr if txt_tr else "Kein Text angegeben")
+            
+            st.session_state['workout']['schritte'] = int(res_tr.get('schritte') or st.session_state['workout']['schritte'])
+            st.session_state['workout']['zirkel_min'] = int(res_tr.get('zirkel_min') or st.session_state['workout']['zirkel_min'])
+            st.session_state['workout']['zirkel_details'] = res_tr.get('zirkel_details') or st.session_state['workout']['zirkel_details']
+            st.session_state['workout']['bike_km'] = float(res_tr.get('bike_km') or st.session_state['workout']['bike_km'])
+            st.session_state['workout']['bike_modus'] = res_tr.get('bike_modus') or st.session_state['workout']['bike_modus']
+            st.session_state['workout']['sonstiges'] = res_tr.get('sonstiges') or st.session_state['workout']['sonstiges']
+            st.session_state['workout']['notiz'] = res_tr.get('workout_notiz', '')
+            st.success("Training erfolgreich analysiert!")
+        else:
+            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
+
+    w = st.session_state['workout']
+    st.markdown("---")
+    w['schritte'] = st.number_input("🚶 Schritte Anzahl", value=int(w['schritte']), step=500)
+    col_z1, col_z2 = st.columns([1, 2])
+    w['zirkel_min'] = col_z1.number_input("⏱️ Zirkel (Min)", value=int(w['zirkel_min']), step=5)
+    w['zirkel_details'] = col_z2.text_input("Übungen / Wdh", value=w['zirkel_details'])
+    col_b1, col_b2 = st.columns(2)
+    w['bike_km'] = col_b1.number_input("🚴 Fahrrad (km)", value=float(w['bike_km']), step=1.0)
+    w['bike_modus'] = col_b2.text_input("E-Bike Modus", value=w['bike_modus'])
+    w['sonstiges'] = st.text
