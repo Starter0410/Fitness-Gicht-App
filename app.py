@@ -206,3 +206,38 @@ def analyze_workout(images, text_prompt):
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         return json.loads(clean_json_response(response.text))
+    except Exception as e:
+        return {
+            "schritte": 0, "zirkel_min": 0, "zirkel_details": "",
+            "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": f"Starke Leistung! (Fallback: {e})"
+        }
+
+def display_gicht_badge(status, notiz=""):
+    if status == "rot":
+        st.error("🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *" + notiz + "*")
+    elif status == "gelb":
+        st.warning("🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *" + notiz + "*")
+    else:
+        st.success("🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *" + notiz + "*")
+
+def show_image_previews(files):
+    if files:
+        cols = st.columns(min(len(files), 4))
+        for idx, file in enumerate(files):
+            cols[idx % 4].image(Image.open(file), use_container_width=True)
+
+def get_todays_totals():
+    m = st.session_state['meals']
+    d = st.session_state['drinks']
+    
+    whey_kcal = d['whey_scoops'] * 120
+    whey_prot = d['whey_scoops'] * 30
+    total_drink_kcal = whey_kcal + d['sonstiges_kcal']
+    total_drink_prot = whey_prot + d['sonstiges_prot']
+    
+    snack_kcal = sum([s['kcal'] for s in m['snacks']])
+    snack_prot = sum([s['prot'] for s in m['snacks']])
+    
+    total_kcal = m['fruehstueck']['kcal'] + m['mittagessen']['kcal'] + m['abendessen']['kcal'] + snack_kcal + total_drink_kcal
+    total_prot = m['fruehstueck']['prot'] + m['mittagessen']['prot'] + m['abendessen']['prot'] + snack_prot + total_drink_prot
+    return
