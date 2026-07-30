@@ -23,6 +23,20 @@ st.set_page_config(
     layout="wide"
 )
 
+# Custom CSS für moderne UI-Cards & saubere Buttons
+st.markdown("""
+<style>
+    .metric-card {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        text-align: center;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Tages-Speicher initialisieren
 if 'meals' not in st.session_state:
     st.session_state['meals'] = {
@@ -55,7 +69,7 @@ if 'workout' not in st.session_state:
     }
 
 # ---------------------------------------------------------
-# HELFER-FUNKTIONEN (GEMINI PROMPTS)
+# HELFER-FUNKTIONEN (GEMINI & UI)
 # ---------------------------------------------------------
 def clean_json_response(text_res):
     text_res = text_res.strip()
@@ -72,32 +86,25 @@ def analyze_images_or_text(images, text_prompt):
     
     prompt = f"""
     Guten Tag,
-
-    Mein Name ist Matthias. Ich habe immer wieder Probleme mit Gichtschüben. Daher haben wir an unserer App gefeilt. Mein Ziel ist eine Body-Recomposition: Mein Gewicht darf stabil bleiben oder leicht steigen, der Fokus liegt aber auf der gezielten Reduktion des Bauchfetts bei gleichzeitigem Erhalt der gesamten Muskelmasse, unter strikter Einhaltung purinarmer Ernährung (Gicht-Prävention). Wir kombinieren in unserem Tagebuch Körperwerte, Essen, Getränke, Training und Subs.
-
+    Mein Name ist Matthias. Ziel ist Body-Recomposition (Fettabbau bei Muskelerhalt) und strikte Purinarmut (Gicht-Prävention).
     Analysiere diesen Text / diese Speise: '{text_prompt}'. 
-
-    Du analysierst diese Mahlzeit auf KCAL, Protein und vergibst genau einen Ampel-Wert (Dropdown: grün, gelb, rot) nach folgender fester Logik:
-    - GRÜN: Vegetarisch oder rein purinarm (z. B. Milchprodukte, Eier, Gemüse, Obst, Haferflocken, Marmelade/Semmel ohne Fleisch).
+    Analysiere auf KCAL, Protein und vergib genau einen Ampel-Wert (grün, gelb, rot):
+    - GRÜN: Vegetarisch oder purinarm (Milchprodukte, Eier, Gemüse, Obst, Haferflocken).
     - GELB: Hühnchen / Geflügel (moderate Purine).
-    - ROT: Alle anderen Fleischsorten (z. B. Rind, Schwein, Fisch/Meeresfrüchte – stark purinhaltig).
+    - ROT: Rind, Schwein, Fisch/Meeresfrüchte (stark purinhaltig).
 
-    Der allgemeine "Gicht Status" richtet sich nach der Ampel der Mahlzeit.
-    Gib mir eine kurze Notiz dazu – mit Fokus auf Gicht, Purine, Motivation oder Mahnung.
-
-    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (ohne Markdown-Backticks drumherum, nur das reine JSON):
+    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (nur das reine JSON):
     {{
         "gewicht": null,
         "kfa": null,
         "skelettmuskel": null,
         "kcal": 0,
         "protein": 0,
-        "beschreibung": "Kurze prägnante Zusammenfassung der Speise",
+        "beschreibung": "Kurze prägnante Zusammenfassung",
         "gicht_bewertung": "grün",
-        "mahlzeit_notiz": "Kurze Notiz/Feedback zur Mahlzeit mit Fokus auf Gicht, Purine, Motivation oder Mahnung."
+        "mahlzeit_notiz": "Kurzes Feedback mit Fokus auf Gicht und Motivation."
     }}
     """
-    
     contents = [prompt]
     if images:
         for img in images:
@@ -109,31 +116,27 @@ def analyze_images_or_text(images, text_prompt):
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        cleaned_text = clean_json_response(response.text)
-        return json.loads(cleaned_text)
+        return json.loads(clean_json_response(response.text))
     except Exception as e:
         return {
             "gewicht": None, "kfa": None, "skelettmuskel": None,
             "kcal": 250, "protein": 5, "beschreibung": text_prompt,
-            "gicht_bewertung": "grün", "mahlzeit_notiz": f"Erfasst via Text (Fallback aktiv: {e})"
+            "gicht_bewertung": "grün", "mahlzeit_notiz": f"Erfasst via Text (Fallback: {e})"
         }
 
 def analyze_workout(images, text_prompt):
     client = genai.Client(api_key=GEMINI_API_KEY)
-    
     prompt = f"""
-    Du bist der persönliche Fitness-Coach von Matthias.
-    Analysiere diesen Text / diese Aktivität: {text_prompt}.
-    Fasse ALLE erkennbaren Trainingsleistungen zusammen. Gib mir Notizen, die motivierend sein sollen.
-    Gib das Ergebnis STRENG im folgenden JSON-Format zurück:
+    Du bist der Fitness-Coach von Matthias. Analysiere diese Aktivität: {text_prompt}.
+    Gib das Ergebnis STRENG im JSON-Format zurück:
     {{
         "schritte": 0,
         "zirkel_min": 0,
-        "zirkel_details": "Beschreibung von Übungen/Wiederholungen falls erkennbar",
+        "zirkel_details": "Übungen/Wdh",
         "bike_km": 0.0,
-        "bike_modus": "z.B. Eco, Tour, Sport, Turbo falls angegeben",
-        "sonstiges": "Andere Sportarten wie Schwimmen/Seilspringen",
-        "workout_notiz": "Ein sehr motivierender, lobender oder anspornender Satz zur Tages-Trainingsleistung von Matthias."
+        "bike_modus": "Modus",
+        "sonstiges": "Sonstiges",
+        "workout_notiz": "Motivierender Satz."
     }}
     """
     contents = [prompt]
@@ -147,8 +150,7 @@ def analyze_workout(images, text_prompt):
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        cleaned_text = clean_json_response(response.text)
-        return json.loads(cleaned_text)
+        return json.loads(clean_json_response(response.text))
     except Exception:
         return {
             "schritte": 0, "zirkel_min": 0, "zirkel_details": "",
@@ -184,28 +186,51 @@ def get_todays_totals():
     total_prot = m['fruehstueck']['prot'] + m['mittagessen']['prot'] + m['abendessen']['prot'] + snack_prot + total_drink_prot
     return total_kcal, total_prot
 
+def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
+    """Generiert ein modernes Halbkreis-Tachometer als SVG"""
+    pct = min(float(current) / float(target), 1.0) if target > 0 else 0
+    angle = pct * 180  # 0 bis 180 Grad
+    
+    svg_code = f"""
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; padding: 18px; border-radius: 16px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        <h4 style="margin: 0 0 10px 0; color: #1e293b; font-size: 16px;">{title}</h4>
+        <svg viewBox="0 0 200 110" style="width: 100%; max-width: 160px; height: auto;">
+            <!-- Hintergrundbogen -->
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#f1f5f9" stroke-width="16" stroke-linecap="round"/>
+            <!-- Fortschrittsbogen -->
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="{color}" stroke-width="16" stroke-linecap="round"
+                  stroke-dasharray="251.2" stroke-dashoffset="{251.2 * (1 - pct)}"/>
+            <!-- Text im Tacho-Zentrum -->
+            <text x="100" y="75" text-anchor="middle" font-size="24" font-weight="bold" fill="#0f172a">{current}</text>
+            <text x="100" y="95" text-anchor="middle" font-size="11" fill="#64748b">Ziel: {target} {unit}</text>
+        </svg>
+        <div style="margin-top: 8px; font-size: 13px; font-weight: 600; color: {color};">{int(pct * 100)}% erreicht</div>
+    </div>
+    """
+    st.markdown(svg_code, unsafe_allow_html=True)
+
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (Echte Klick-Buttons untereinander)
 # ---------------------------------------------------------
 with st.sidebar:
     st.title("🏋️‍♂️ Fitness & Gicht")
     st.markdown("---")
     
-    selected_tab = st.selectbox(
-        "Navigation",
-        [
-            "🏠 Startseite", 
-            "⚖️ Waage", 
-            "🍳 Frühstück", 
-            "🍲 Mittag", 
-            "🌙 Abend", 
-            "🍏 Snacks", 
-            "🥤 Getränke", 
-            "🏋️‍♂️ Training", 
-            "✅ Abschluss",
-            "📈 Statistik & Bilanz"
-        ]
-    )
+    tabs = [
+        "🏠 Startseite", 
+        "⚖️ Waage", 
+        "🍳 Frühstück", 
+        "🍲 Mittag", 
+        "🌙 Abend", 
+        "🍏 Snacks", 
+        "🥤 Getränke", 
+        "🏋️‍♂️ Training", 
+        "✅ Abschluss",
+        "📈 Statistik & Bilanz"
+    ]
+    
+    selected_tab = st.radio("Navigation", tabs, label_visibility="collapsed")
+    
     st.markdown("---")
     st.caption("Body Recomp & Purinarm-Tracking")
 
@@ -215,29 +240,25 @@ with st.sidebar:
 
 if selected_tab == "🏠 Startseite":
     st.subheader("🏠 Tages-Dashboard")
-    st.write("Willkommen zurück, Matthias! Hier hast du den schnellen Überblick über deinen aktuellen Tag.")
+    st.write("Willkommen zurück, Matthias! Hier ist dein moderner Überblick über den heutigen Tag.")
     
     cur_kcal, cur_prot = get_todays_totals()
     target_kcal = 2300 
     target_prot = 145
     
-    col_d1, col_d2 = st.columns(2)
+    col_d1, col_d2, col_d3 = st.columns(3)
     
     with col_d1:
-        st.markdown("### 🔥 Kalorien-Stand")
-        st.metric("Aktuell erfasst", f"{cur_kcal} kcal", f"Ziel: {target_kcal} kcal")
-        progress_val = min(float(cur_kcal) / float(target_kcal), 1.0)
-        st.progress(progress_val, text=f"Fortschritt zum Kalorienziel ({int(progress_val * 100)}%)")
-
+        render_gauge_svg(cur_kcal, target_kcal, "🔥 Kalorien", "kcal", "#f97316")
     with col_d2:
-        st.markdown("### 🥩 Protein-Stand")
-        st.metric("Aktuell erfasst", f"{cur_prot} g", f"Ziel: {target_prot} g")
-        progress_prot = min(float(cur_prot) / float(target_prot), 1.0)
-        st.progress(progress_prot, text=f"Fortschritt zum Proteinziel ({int(progress_prot * 100)}%)")
+        render_gauge_svg(cur_prot, target_prot, "🥩 Protein", "g", "#3b82f6")
+    with col_d3:
+        steps = st.session_state['workout']['schritte']
+        render_gauge_svg(steps, 10000, "🚶 Schritte", "Steps", "#10b981")
 
     st.markdown("---")
     st.markdown("### 🚀 Schnell-Navigation")
-    st.info("Nutze die linke Sidebar, um Mahlzeiten hinzuzufügen, dein Training einzutragen oder den Tagesabschluss zu machen.")
+    st.info("Klicke links in der Leiste auf die jeweilige Mahlzeit, das Training oder den Abschluss, um deine Daten zu pflegen.")
 
 elif selected_tab == "⚖️ Waage":
     st.subheader("⚖️ Waagen-Messung")
@@ -437,157 +458,4 @@ elif selected_tab == "✅ Abschluss":
         datum = st.date_input("Datum", value=datetime.date.today())
         c1, c2, c3 = st.columns(3)
         g_val = c1.number_input("Gewicht (kg)", value=float(st.session_state.get('saved_g', 0.0)), step=0.1)
-        k_val = c2.number_input("KFA (%)", value=float(st.session_state.get('saved_k', 0.0)), step=0.1)
-        m_val = c3.number_input("Skelettmuskel (%)", value=float(st.session_state.get('saved_m', 0.0)), step=0.1)
-        
-        c4, c5 = st.columns(2)
-        kc_val = c4.number_input("Kalorien Gesamt", value=total_kcal)
-        pr_val = c5.number_input("Protein Gesamt", value=total_prot)
-        
-        notizen = st.text_area("Generierte Tagesnotiz für Excel", value=full_notes, height=100)
-        
-        if st.form_submit_button("🚀 In Excel speichern & Download vorbereiten"):
-            if os.path.exists(EXCEL_FILE):
-                try:
-                    wb = load_workbook(EXCEL_FILE)
-                    ws = wb.active
-                    ws.append([str(datum), g_val, k_val, m_val, kc_val, pr_val, notizen])
-                    wb.save(EXCEL_FILE)
-                    st.success(f"✅ Tageseintrag erfolgreich gespeichert!")
-                except Exception as e:
-                    st.error(f"Fehler: {e}")
-            else:
-                from openpyxl import Workbook
-                wb = Workbook()
-                ws = wb.active
-                ws.append([str(datum), g_val, k_val, m_val, kc_val, pr_val, notizen])
-                wb.save(EXCEL_FILE)
-                st.success(f"✅ Neue Excel erstellt & gespeichert!")
-
-    if os.path.exists(EXCEL_FILE):
-        with open(EXCEL_FILE, "rb") as file:
-            st.download_button(
-                label="📥 Aktuelle Excel-Datei auf Laptop herunterladen",
-                data=file,
-                file_name=EXCEL_FILE,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary"
-            )
-
-elif selected_tab == "📈 Statistik & Bilanz":
-    st.subheader("📈 Historische Auswertungen, Wochen- & Monatsbilanz")
-    
-    if os.path.exists(EXCEL_FILE):
-        try:
-            df = pd.read_excel(EXCEL_FILE)
-            
-            if not df.empty:
-                df.columns = [str(c).strip() for c in df.columns]
-                
-                if 'Skel.Musk' in df.columns:
-                    df.rename(columns={'Skel.Musk': 'Skelettmuskel (%)'}, inplace=True)
-                
-                numeric_cols = ['KG', 'KFA', 'Skelettmuskel (%)', 'KCAL', 'Prot', 'Schritte']
-                for col in numeric_cols:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-
-                date_col = None
-                for c in df.columns:
-                    if 'datum' in c.lower() or 'date' in c.lower():
-                        date_col = c
-                        break
-                
-                if date_col:
-                    df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                    df = df.sort_values(by=date_col, ascending=False)
-                    df['Monat-Jahr'] = df[date_col].dt.strftime('%Y-%m')
-                    
-                    st.markdown("### 📊 Aktuelle Bilanzen (Durchschnitte)")
-                    recent_7 = df.head(7)
-                    
-                    if 'KCAL' in recent_7.columns and not recent_7['KCAL'].dropna().empty:
-                        avg_7_kcal = int(recent_7['KCAL'].mean())
-                    else:
-                        avg_7_kcal = 0
-
-                    if 'Prot' in recent_7.columns and not recent_7['Prot'].dropna().empty:
-                        avg_7_prot = int(recent_7['Prot'].mean())
-                    else:
-                        avg_7_prot = 0
-
-                    if 'Schritte' in recent_7.columns and not recent_7['Schritte'].dropna().empty:
-                        avg_7_steps = int(recent_7['Schritte'].mean())
-                    else:
-                        avg_7_steps = 0
-                    
-                    col_b1, col_b2, col_b3 = st.columns(3)
-                    col_b1.metric("Ø KCAL (Letzte 7 Tage)", f"{avg_7_kcal} kcal")
-                    col_b2.metric("Ø Protein (Letzte 7 Tage)", f"{avg_7_prot} g")
-                    col_b3.metric("Ø Schritte (Letzte 7 Tage)", f"{avg_7_steps}")
-
-                    st.markdown("---")
-
-                    verfuegbare_monate = sorted(df['Monat-Jahr'].dropna().unique(), reverse=True)
-                    if verfuegbare_monate:
-                        selected_month = st.selectbox(
-                            "📅 Nach Monat für Diagramme filtern:", 
-                            ["Alle Monate"] + list(verfuegbare_monate)
-                        )
-                        if selected_month != "Alle Monate":
-                            df_filtered = df[df['Monat-Jahr'] == selected_month]
-                        else:
-                            df_filtered = df
-                    else:
-                        df_filtered = df
-                else:
-                    df_filtered = df
-
-                st.success(f"📊 {len(df_filtered)} Datensätze in der Auswertung aktiv.")
-                x_col = date_col if date_col else None
-
-                st.markdown("### 🧬 Körperwerte (Body Recomp)")
-                col_k1, col_k2, col_k3 = st.columns(3)
-                with col_k1:
-                    st.markdown("**Gewicht (KG)**")
-                    if 'KG' in df_filtered.columns:
-                        st.line_chart(df_filtered.set_index(x_col)['KG'] if x_col else df_filtered['KG'])
-                with col_k2:
-                    st.markdown("**KFA (%)**")
-                    if 'KFA' in df_filtered.columns:
-                        st.line_chart(df_filtered.set_index(x_col)['KFA'] if x_col else df_filtered['KFA'])
-                with col_k3:
-                    st.markdown("**Skelettmuskel (%)**")
-                    if 'Skelettmuskel (%)' in df_filtered.columns:
-                        st.line_chart(df_filtered.set_index(x_col)['Skelettmuskel (%)'] if x_col else df_filtered['Skelettmuskel (%)'])
-
-                st.markdown("---")
-                st.markdown("### 🚶‍♂️ Schritte-Verlauf (Ziel: 10.000 Schritte)")
-                if 'Schritte' in df_filtered.columns:
-                    chart_data = df_filtered[[date_col, 'Schritte']].copy() if date_col else pd.DataFrame({'Schritte': df_filtered['Schritte']})
-                    if date_col:
-                        chart_data = chart_data.set_index(date_col)
-                    chart_data['Ziel (10k)'] = 10000
-                    st.line_chart(chart_data)
-
-                st.markdown("---")
-                col_n1, col_n2 = st.columns(2)
-                with col_n1:
-                    st.markdown("### 🥗 Kalorien-Trend (kcal)")
-                    if 'KCAL' in df_filtered.columns:
-                        kc_data = df_filtered.set_index(date_col)[['KCAL']].copy() if date_col else pd.DataFrame({'KCAL': df_filtered['KCAL']})
-                        kc_data['Ziel (2300 kcal)'] = 2300
-                        st.line_chart(kc_data)
-                with col_n2:
-                    st.markdown("### 🥩 Protein-Trend (g)")
-                    if 'Prot' in df_filtered.columns:
-                        pr_data = df_filtered.set_index(date_col)[['Prot']].copy() if date_col else pd.DataFrame({'Prot': df_filtered['Prot']})
-                        pr_data['Ziel (145g)'] = 145
-                        st.line_chart(pr_data)
-
-            else:
-                st.info("Deine Excel-Datei ist noch leer.")
-        except Exception as e:
-            st.error(f"Fehler beim Einlesen der Excel: {e}")
-    else:
-        st.warning(f"Die Excel-Datei '{EXCEL_FILE}' wurde auf GitHub nicht gefunden.")
+        k_val = c2.number_input("KFA (%)", value=float(st.session_state.get('saved_k', 0.0
