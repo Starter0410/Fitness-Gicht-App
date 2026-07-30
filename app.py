@@ -161,4 +161,4 @@ def display_gicht_badge(status, notiz=""):
     elif status == "gelb":
         st.warning(f"🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *{notiz}*")
     else:
-        st.success(f"🟢 **Gichtfreundlich (Purinarm)**\n\n
+        st.success(f"🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *{notiz}*")
