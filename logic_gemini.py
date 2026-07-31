@@ -1,23 +1,43 @@
 from google import genai
 from google.genai import types
-from PIL import Image
 import json
 
 def call_new_genai(api_key, prompt_text, pil_imgs):
-    # Der neue, offizielle Client von Google
     client = genai.Client(api_key=api_key)
-    
-    # Inhalt vorbereiten (Prompt + alle übergebenen PIL-Bilder)
     contents = [prompt_text] + pil_imgs
     
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=contents,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json"
-        ),
-    )
-    return json.loads(response.text)
+    # WENN-DANN LOGIK (AUTOMATISCHER FALLBACK)
+    try:
+        # Erster Versuch mit dem neuesten Modell
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e_first:
+        try:
+            # WENN das fehlschlägt, DANN automatisch auf das stabile 1.5-flash ausweichen
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            return json.loads(response.text)
+        except Exception as e_second:
+            # DANN als letzter Ausweg gemini-1.5-pro probieren
+            response = client.models.generate_content(
+                model='gemini-1.5-pro',
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                ),
+            )
+            return json.loads(response.text)
 
 def analyze_waage(api_key, pil_imgs):
     prompt = (
