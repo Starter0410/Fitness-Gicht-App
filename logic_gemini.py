@@ -9,7 +9,6 @@ def image_to_base64(pil_img):
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 def call_gemini_api(api_key, prompt_text, pil_imgs):
-    # Nutzt standardmäßig das schnelle gemini-2.5-flash Modell
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     
     parts = [{"text": prompt_text}]
@@ -59,3 +58,12 @@ def analyze_workout(api_key, pil_imgs, txt_input):
         '{"schritte": 0, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": ""}'
     )
     return call_gemini_api(api_key, prompt, pil_imgs)
+
+def analyze_image(api_key, pil_imgs, txt_input=""):
+    """Universelle Analyse für Mahlzeiten/Lebensmittel, falls views_meals darauf zugreift."""
+    prompt = (
+        f"Analysiere das Essen/die Mahlzeit basierend auf diesem Text: '{txt_input}' und den Bildern. "
+        "Schätze die Nährwerte und gib sie als JSON mit exakt diesen Schlüsseln zurück: "
+        '{"kcal": 0, "protein": 0.0, "notiz": ""}'
+    )
+    return call_gemini_api(api_key, prompt, pil_imgs if pil_imgs else [])
