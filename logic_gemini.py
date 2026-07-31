@@ -39,7 +39,7 @@ def analyze_waage(api_key, images):
             
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -90,7 +90,7 @@ def analyze_images_or_text(api_key, images, text_prompt):
         
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -123,7 +123,7 @@ def analyze_workout(api_key, images, text_prompt):
         
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             contents=contents,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
