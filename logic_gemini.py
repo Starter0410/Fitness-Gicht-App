@@ -6,38 +6,25 @@ def call_new_genai(api_key, prompt_text, pil_imgs):
     client = genai.Client(api_key=api_key)
     contents = [prompt_text] + pil_imgs
     
-    # WENN-DANN LOGIK (AUTOMATISCHER FALLBACK)
-    try:
-        # Erster Versuch mit dem neuesten Modell
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            ),
-        )
-        return json.loads(response.text)
-    except Exception as e_first:
+    # Liste aller verfügbaren Modell-Optionen der Reihe nach durchgehen (Wenn-Dann-Logik)
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    
+    last_error = None
+    for model_name in models_to_try:
         try:
-            # WENN das fehlschlägt, DANN automatisch auf das stabile 1.5-flash ausweichen
             response = client.models.generate_content(
-                model='gemini-1.5-flash',
+                model=model_name,
                 contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json"
                 ),
             )
             return json.loads(response.text)
-        except Exception as e_second:
-            # DANN als letzter Ausweg gemini-1.5-pro probieren
-            response = client.models.generate_content(
-                model='gemini-1.5-pro',
-                contents=contents,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json"
-                ),
-            )
-            return json.loads(response.text)
+        except Exception as e:
+            last_error = e
+            continue
+            
+    raise Exception(Kein unterstütztes Modell gefunden. Letzter Fehler: {last_error})
 
 def analyze_waage(api_key, pil_imgs):
     prompt = (
