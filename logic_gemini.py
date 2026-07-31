@@ -16,15 +16,16 @@ def clean_json_response(text_res):
 def analyze_waage(api_key, images):
     client = genai.Client(api_key=api_key)
     prompt = """
-    Du bist ein präziser Daten-Extraktor für RENPHO Körperzusammensetzungs-Berichte. 
-    Analysiere das übergebene Bild des Berichts. 
-    Suche in der Tabelle 'Körperzusammensetzung' bzw. der oberen Haupttabelle nach folgenden exakten Werten:
-    1. "gewicht": Der Wert bei 'Gewicht' in kg (z.B. 70.45).
-    2. "kfa": Der Körperfettanteil (als Prozentzahl z.B. 13.9).
-    3. "skelettmuskel": Der Wert bei 'Skelettmuskelmasse' in kg (z.B. 34.45).
+    Du bist ein extrem präziser Daten-Extraktor für Körperanalyse-Waagen (z.B. RENPHO oder ähnliche Apps). 
+    Analysiere das übergebene Bild und suche nach folgenden drei Messwerten:
+    1. "gewicht": Der Wert für 'Gewicht' in kg (suche nach Zahlen wie z.B. 70.4).
+    2. "kfa": Der Wert für 'Körperfettanteil' oder 'KFA' in Prozent (suche nach Prozentzahlen wie z.B. 13.9).
+    3. "skelettmuskel": Der Wert für 'Skelettmuskelmasse' in kg (suche nach Muskelmasse-Werten wie z.B. 34.5).
 
-    Falls ein Wert absolut nicht zu finden ist, setze ihn auf null.
-    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (kein zusätzlicher Text, nur das reine JSON):
+    Ignoriere Einheiten wie 'kg' oder '%'. Wenn ein Wert als Komma geschrieben ist (z.B. 70,4), wandle ihn in einen Punkt um (70.4).
+    Falls ein Wert absolut nicht im Bild zu finden ist, setze ihn auf null.
+    
+    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (kein zusätzlicher Text, kein Markdown drumherum, nur das reine JSON):
     {
         "gewicht": 0.0,
         "kfa": 0.0,
