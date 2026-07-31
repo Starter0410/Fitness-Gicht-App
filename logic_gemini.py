@@ -1,20 +1,23 @@
 import requests
 import json
 import io
-import base64
-
-def image_to_base64(pil_img):
-    buffered = io.BytesIO()
-    pil_img.save(buffered, format="JPEG")
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 def call_gemini_api(api_key, prompt_text, pil_imgs):
-    # Wichtig: Verwendung von v1beta mit dem API-Key als URL-Parameter (umgeht jeglichen OAuth-Zwang)
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     
     parts = [{"text": prompt_text}]
     for img in pil_imgs:
-        img_b64 = image_to_base64(img)
+        # Konvertiert das PIL-Image verlustfrei in Bytes (verhindert Stream-Fehler)
+        buffered = io.BytesIO()
+        # Falls das Bild im RGBA-Modus ist (PNG mit Transparenz), nach RGB konvertieren
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        img.save(buffered, format="JPEG")
+        img_bytes = buffered.getvalue()
+        
+        import base64
+        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
+        
         parts.append({
             "inline_data": {
                 "mime_type": "image/jpeg",
