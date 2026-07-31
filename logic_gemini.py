@@ -9,8 +9,8 @@ def image_to_base64(pil_img):
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 def call_gemini_api(api_key, prompt_text, pil_imgs):
-    # Wichtig für AQ.-Schlüssel: Verwendung von v1 mit dem Bearer-Token im Authorization-Header
-    url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
+    # Wichtig: Der API-Key wird hier sauber als URL-Parameter übergeben (kein Bearer-Header!)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     
     parts = [{"text": prompt_text}]
     for img in pil_imgs:
@@ -31,12 +31,7 @@ def call_gemini_api(api_key, prompt_text, pil_imgs):
         }
     }
     
-    # Hier wird der AQ.-Schlüssel als Bearer-Token übergeben
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}'
-    }
-    
+    headers = {'Content-Type': 'application/json'}
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     
     if response.status_code != 200:
