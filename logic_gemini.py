@@ -9,7 +9,7 @@ def image_to_base64(pil_img):
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 def call_gemini_api(api_key, prompt_text, pil_imgs):
-    # Umstellung auf v1 mit gemini-1.5-flash
+    # Generischer v1-Endpunkt ohne Modellname in der URL
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     parts = [{"text": prompt_text}]
@@ -34,6 +34,11 @@ def call_gemini_api(api_key, prompt_text, pil_imgs):
     headers = {'Content-Type': 'application/json'}
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     
+    # Fallback, falls der Pfad mit gemini-1.5-flash zickt, probieren wir den generellen Endpunkt
+    if response.status_code == 404:
+        url_fallback = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        response = requests.post(url_fallback, headers=headers, data=json.dumps(payload))
+
     if response.status_code != 200:
         raise Exception(f"API-Fehler ({response.status_code}): {response.text}")
         
