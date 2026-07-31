@@ -11,12 +11,13 @@ from views_meals import render_meal_page, render_snacks_page, render_drinks_page
 from views_training import render_waage_page, render_training_page, render_statistik_page
 
 # =========================================================
-# API-KEY LADEN (Priorität: Streamlit Secrets -> Fallback)
+# API-KEY LADEN (Streng über Streamlit Secrets)
 # =========================================================
-try:
+if "GEMINI_API_KEY" in st.secrets:
     GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    GEMINI_API_KEY = "AQ.Ab8RN6JBdMOINycPw0LdsUMe_kH9YVbflYGVvh1T-Jc0XTGCmQ"
+else:
+    st.error("⚠️ Kein GEMINI_API_KEY in den Streamlit-Secrets gefunden! Bitte trage ihn in den App-Einstellungen unter 'Secrets' ein.")
+    st.stop()
 
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
 BACKUP_FILE = "tagesentwurf.json"
