@@ -26,6 +26,10 @@ def render_waage_page(api_key, save_callback):
         if st.button("🤖 Waage analysieren", type="primary"):
             pil_imgs = [Image.open(f) for f in imgs_w]
             res = analyze_waage(api_key, pil_imgs)
+            
+            # --- FÜGE DIESE ZEILE EIN, UM ZU SEHEN, WAS GEMINI LIEFERT ---
+            st.write("DEBUG-ANTWORT VON GEMINI:", res)
+            
             st.session_state["waage_data"] = res
             
             if res.get("gewicht") is not None: 
