@@ -1,21 +1,22 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from PIL import Image
 import json
 
-def call_gemini_sdk(api_key, prompt_text, pil_imgs):
-    genai.configure(api_key=api_key)
+def call_new_genai(api_key, prompt_text, pil_imgs):
+    # Der neue, offizielle Client von Google
+    client = genai.Client(api_key=api_key)
     
-    # Das offizielle, stabile Standardmodell für das SDK
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Inhalt vorbereiten (Prompt + alle übergebenen PIL-Bilder)
+    contents = [prompt_text] + pil_imgs
     
-    # Inhalt zusammenstellen (Prompt + Bilder)
-    content = [prompt_text] + pil_imgs
-    
-    response = model.generate_content(
-        content,
-        generation_config={"response_mime_type": "application/json"}
+    response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=contents,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json"
+        ),
     )
-    
     return json.loads(response.text)
 
 def analyze_waage(api_key, pil_imgs):
@@ -25,7 +26,7 @@ def analyze_waage(api_key, pil_imgs):
         "Antworte AUSSCHLIESSLICH im JSON-Format mit diesen exakten Schlüsseln (als Float oder null): "
         '{"gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0}'
     )
-    return call_gemini_sdk(api_key, prompt, pil_imgs)
+    return call_new_genai(api_key, prompt, pil_imgs)
 
 def analyze_workout(api_key, pil_imgs, txt_input):
     prompt = (
@@ -33,7 +34,7 @@ def analyze_workout(api_key, pil_imgs, txt_input):
         "Antworte AUSSCHLIESSLICH im JSON-Format mit diesen exakten Schlüsseln: "
         '{"schritte": 0, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": ""}'
     )
-    return call_gemini_sdk(api_key, prompt, pil_imgs)
+    return call_new_genai(api_key, prompt, pil_imgs)
 
 def analyze_images_or_text(api_key, pil_imgs, txt_input):
     prompt = (
@@ -42,4 +43,4 @@ def analyze_images_or_text(api_key, pil_imgs, txt_input):
         "Antworte AUSSCHLIESSLICH im JSON-Format mit diesen exakten Schlüsseln: "
         '{"kcal": 0, "protein": 0, "beschreibung": "", "gicht_bewertung": "grün", "mahlzeit_notiz": ""}'
     )
-    return call_gemini_sdk(api_key, prompt, pil_imgs)
+    return call_new_genai(api_key, prompt, pil_imgs)
