@@ -9,8 +9,8 @@ def image_to_base64(pil_img):
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 def call_gemini_api(api_key, prompt_text, pil_imgs):
-    # Wichtig: Der API-Key wird hier sauber als URL-Parameter übergeben (kein Bearer-Header!)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Verwendung von gemini-1.5-flash und dem API-Key als URL-Parameter
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
     
     parts = [{"text": prompt_text}]
     for img in pil_imgs:
