@@ -22,7 +22,7 @@ BACKUP_FILE = tagesentwurf.json
 # ---------------------------------------------------------
 st.set_page_config(
     page_title=Gicht & Body Recomp Tracking, 
-    page_icon=💪, 
+    page_icon="💪",
     layout=wide
 )
 
