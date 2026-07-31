@@ -10,9 +10,9 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
     # Konvertiere PIL-Bilder in das Format, das der neue Client direkt verarbeitet
     contents = [prompt_text] + pil_imgs
     
-    # Nutzung des stabilen Standardmodells über den offiziellen Client
+    # Korrektes, verfügbares Standardmodell genutzt
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model='gemini-2.0-flash',
         contents=contents,
         config=types.GenerateContentConfig(
             response_mime_type="application/json"
