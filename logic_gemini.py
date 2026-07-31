@@ -1,13 +1,11 @@
 import os
 from google import genai
 from google.genai import types
-pydantic_available = True
-try:
-    from pydantic import BaseModel, Field
-except ImportError:
-    pydantic_available = False
+import json
 
 def get_client(api_key):
+    # Setzt den Key explizit in die Umgebungsvariable, damit das SDK nicht nach OAuth sucht
+    os.environ["GEMINI_API_KEY"] = api_key
     return genai.Client(api_key=api_key)
 
 def analyze_waage(api_key, pil_imgs):
@@ -26,7 +24,6 @@ def analyze_waage(api_key, pil_imgs):
             response_mime_type="application/json"
         ),
     )
-    import json
     return json.loads(response.text)
 
 def analyze_workout(api_key, pil_imgs, txt_input):
@@ -44,7 +41,6 @@ def analyze_workout(api_key, pil_imgs, txt_input):
             response_mime_type="application/json"
         ),
     )
-    import json
     return json.loads(response.text)
 
 def analyze_images_or_text(api_key, pil_imgs, txt_input):
@@ -63,5 +59,4 @@ def analyze_images_or_text(api_key, pil_imgs, txt_input):
             response_mime_type="application/json"
         ),
     )
-    import json
     return json.loads(response.text)
