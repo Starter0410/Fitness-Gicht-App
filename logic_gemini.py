@@ -49,7 +49,7 @@ def analyze_waage(api_key, images):
                 return None
             try:
                 if isinstance(val, str):
-                    val = val.replace(',', '.')
+                    val = val.replace(",", ".")
                 return float(val)
             except Exception:
                 return None
