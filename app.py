@@ -119,6 +119,9 @@ if 'workout' not in st.session_state:
         'notiz': ''
     }
 
+if 'waage_data' not in st.session_state:
+    st.session_state['waage_data'] = {'gewicht': None, 'kfa': None, 'skelettmuskel': None}
+
 # Beim Start einmalig Backup laden, falls noch nicht im Session State
 if 'initialized_backup' not in st.session_state:
     load_daily_backup()
@@ -137,6 +140,42 @@ def clean_json_response(text_res):
         text_res = text_res[:-3]
     return text_res.strip()
 
+def analyze_waage(images):
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    prompt = """
+    Analysiere dieses Waagen-Display oder App-Screenshot. 
+    Extrahiere folgende drei Werte, falls auf dem Bild vorhanden (sonst null):
+    1. gewicht (als Dezimalzahl in kg, z.B. 78.5)
+    2. kfa (Körperfettanteil in Prozent als Dezimalzahl, z.B. 16.2)
+    3. skelettmuskel (Skelettmuskelanteil in Prozent oder Masse als Dezimalzahl, z.B. 35.4)
+
+    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (nur das reine JSON):
+    {
+        "gewicht": 0.0,
+        "kfa": 0.0,
+        "skelettmuskel": 0.0
+    }
+    """
+    contents = [prompt]
+    if images:
+        for img in images:
+            contents.append(img)
+            
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=contents,
+            config=types.GenerateContentConfig(response_mime_type="application/json")
+        )
+        res_json = json.loads(clean_json_response(response.text))
+        return {
+            "gewicht": float(res_json.get("gewicht")) if res_json.get("gewicht") is not None else None,
+            "kfa": float(res_json.get("kfa")) if res_json.get("kfa") is not None else None,
+            "skelettmuskel": float(res_json.get("skelettmuskel")) if res_json.get("skelettmuskel") is not None else None,
+        }
+    except Exception as e:
+        return {"gewicht": None, "kfa": None, "skelettmuskel": None}
+
 def analyze_images_or_text(images, text_prompt):
     client = genai.Client(api_key=GEMINI_API_KEY)
     
@@ -151,9 +190,6 @@ def analyze_images_or_text(images, text_prompt):
 
     Gib das Ergebnis STRENG im folgenden JSON-Format zurück (nur das reine JSON):
     {{
-        "gewicht": null,
-        "kfa": null,
-        "skelettmuskel": null,
         "kcal": 0,
         "protein": 0,
         "beschreibung": "Kurze prägnante Zusammenfassung",
@@ -175,7 +211,6 @@ def analyze_images_or_text(images, text_prompt):
         return json.loads(clean_json_response(response.text))
     except Exception as e:
         return {
-            "gewicht": None, "kfa": None, "skelettmuskel": None,
             "kcal": 250, "protein": 5, "beschreibung": text_prompt,
             "gicht_bewertung": "grün", "mahlzeit_notiz": f"Erfasst via Text (Fallback: {e})"
         }
@@ -411,17 +446,24 @@ elif st.session_state['nav_tab'] == "⚖️ Waage":
     if imgs_w:
         if st.button("🤖 Waage analysieren", type="primary"):
             pil_imgs = [Image.open(f) for f in imgs_w]
-            res = analyze_images_or_text(pil_imgs, "Waagen Display")
+            res = analyze_waage(pil_imgs)
             st.session_state['waage_data'] = res
             save_daily_backup()
-            st.success("Waagendaten erkannt!")
+            st.success("Waagendaten erfolgreich erkannt!")
 
     w_data = st.session_state.get('waage_data', {})
     with st.form("waage_form"):
         col1, col2, col3 = st.columns(3)
-        g = col1.number_input("Gewicht (kg)", value=float(w_data.get('gewicht') or st.session_state.get('saved_g', 0.0)), step=0.1)
-        k = col2.number_input("KFA (%)", value=float(w_data.get('kfa') or st.session_state.get('saved_k', 0.0)), step=0.1)
-        m = col3.number_input("Skelettmuskel (%)", value=float(w_data.get('skelettmuskel') or st.session_state.get('saved_m', 0.0)), step=0.1)
+        
+        # Fallback auf alten Zwischenspeicher, falls kein Bild analysiert wurde
+        def_g = w_data.get('gewicht') if w_data.get('gewicht') is not None else st.session_state.get('saved_g', 0.0)
+        def_k = w_data.get('kfa') if w_data.get('kfa') is not None else st.session_state.get('saved_k', 0.0)
+        def_m = w_data.get('skelettmuskel') if w_data.get('skelettmuskel') is not None else st.session_state.get('saved_m', 0.0)
+
+        g = col1.number_input("Gewicht (kg)", value=float(def_g), step=0.1)
+        k = col2.number_input("KFA (%)", value=float(def_k), step=0.1)
+        m = col3.number_input("Skelettmuskel (%)", value=float(def_m), step=0.1)
+        
         if st.form_submit_button("💾 Waagendaten merken"):
             st.session_state['saved_g'] = g
             st.session_state['saved_k'] = k
