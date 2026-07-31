@@ -1,23 +1,20 @@
 import requests
 import json
 import io
+import base64
+
+def image_to_base64(pil_img):
+    buffered = io.BytesIO()
+    pil_img.save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 def call_gemini_api(api_key, prompt_text, pil_imgs):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Wichtig für AQ.-Schlüssel: Verwendung von v1 mit dem Bearer-Token im Authorization-Header
+    url = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
     
     parts = [{"text": prompt_text}]
     for img in pil_imgs:
-        # Konvertiert das PIL-Image verlustfrei in Bytes (verhindert Stream-Fehler)
-        buffered = io.BytesIO()
-        # Falls das Bild im RGBA-Modus ist (PNG mit Transparenz), nach RGB konvertieren
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-        img.save(buffered, format="JPEG")
-        img_bytes = buffered.getvalue()
-        
-        import base64
-        img_b64 = base64.b64encode(img_bytes).decode("utf-8")
-        
+        img_b64 = image_to_base64(img)
         parts.append({
             "inline_data": {
                 "mime_type": "image/jpeg",
@@ -34,7 +31,12 @@ def call_gemini_api(api_key, prompt_text, pil_imgs):
         }
     }
     
-    headers = {'Content-Type': 'application/json'}
+    # Hier wird der AQ.-Schlüssel als Bearer-Token übergeben
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {api_key}'
+    }
+    
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     
     if response.status_code != 200:
