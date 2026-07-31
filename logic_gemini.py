@@ -1,135 +1,61 @@
+import requests
 import json
-from google import genai
-from google.genai import types
-from PIL import Image
+import io
+import base64
 
-def clean_json_response(text_res):
-    text_res = text_res.strip()
-    if text_res.startswith("```json"):
-        text_res = text_res[7:]
-    elif text_res.startswith("```"):
-        text_res = text_res[3:]
-    if text_res.endswith("```"):
-        text_res = text_res[:-3]
-    return text_res.strip()
+def image_to_base64(pil_img):
+    buffered = io.BytesIO()
+    pil_img.save(buffered, format="JPEG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-def analyze_waage(api_key, images):
-    client = genai.Client(api_key=api_key)
-    prompt = """
-    Du bist ein extrem präziser Daten-Extraktor für Körperanalyse-Waagen. 
-    Analysiere das übergebene Bild und suche nach folgenden drei Messwerten:
-    1. "gewicht": Der Wert für 'Gewicht' in kg (als Dezimalzahl, z.B. 70.4).
-    2. "kfa": Der Wert für 'Körperfettanteil' oder 'KFA' in Prozent (als Dezimalzahl, z.B. 13.9).
-    3. "skelettmuskel": Der Wert für 'Skelettmuskelmasse' in kg (als Dezimalzahl, z.B. 34.5).
-
-    Ignoriere Einheiten. Ersetze Kommas durch Punkte.
-    Falls ein Wert nicht gefunden wird, setze ihn auf null.
+def call_gemini_api(api_key, prompt_text, pil_imgs):
+    # Nutzt standardmäßig das schnelle gemini-2.5-flash Modell
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     
-    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (nur das reine JSON, kein Markdown drumherum):
-    {
-        "gewicht": 0.0,
-        "kfa": 0.0,
-        "skelettmuskel": 0.0
+    parts = [{"text": prompt_text}]
+    for img in pil_imgs:
+        img_b64 = image_to_base64(img)
+        parts.append({
+            "inline_data": {
+                "mime_type": "image/jpeg",
+                "data": img_b64
+            }
+        })
+        
+    payload = {
+        "contents": [{
+            "parts": parts
+        }],
+        "generationConfig": {
+            "response_mime_type": "application/json"
+        }
     }
-    """
-    contents = [prompt]
-    if images:
-        for img in images:
-            contents.append(img)
-            
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
-        )
-        res_json = json.loads(clean_json_response(response.text))
+    
+    headers = {'Content-Type': 'application/json'}
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    
+    if response.status_code != 200:
+        raise Exception(f"API-Fehler ({response.status_code}): {response.text}")
         
-        def parse_val(val):
-            if val is None:
-                return None
-            try:
-                if isinstance(val, str):
-                    val = val.replace(",", ".")
-                return float(val)
-            except Exception:
-                return None
-
-        return {
-            "gewicht": parse_val(res_json.get("gewicht")),
-            "kfa": parse_val(res_json.get("kfa")),
-            "skelettmuskel": parse_val(res_json.get("skelettmuskel")),
-        }
-    except Exception as e:
-        raise RuntimeError(f"API/Parsing-Fehler: {str(e)}")
-
-def analyze_images_or_text(api_key, images, text_prompt):
-    client = genai.Client(api_key=api_key)
-    prompt = f"""
-    Guten Tag,
-    Mein Name ist Matthias. Ziel ist Body-Recomposition (Fettabbau bei Muskelerhalt) und strikte Purinarmut (Gicht-Prävention).
-    Analysiere diesen Text / diese Speise: '{text_prompt}'. 
-    Analysiere auf KCAL, Protein und vergib genau einen Ampel-Wert (grün, gelb, rot):
-    - GRÜN: Vegetarisch oder purinarm (Milchprodukte, Eier, Gemüse, Obst, Haferflocken).
-    - GELB: Hühnchen / Geflügel (moderate Purine).
-    - ROT: Rind, Schwein, Fisch/Meeresfrüchte (stark purinhaltig).
-
-    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (nur das reine JSON):
-    {{
-        "kcal": 0,
-        "protein": 0,
-        "beschreibung": "Kurze prägnante Zusammenfassung",
-        "gicht_bewertung": "grün",
-        "mahlzeit_notiz": "Kurzes Feedback mit Fokus auf Gicht und Motivation."
-    }}
-    """
-    contents = [prompt]
-    if images:
-        for img in images:
-            contents.append(img)
-        
+    res_json = response.json()
     try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
-        )
-        return json.loads(clean_json_response(response.text))
+        text_result = res_json["candidates"][0]["content"]["parts"][0]["text"]
+        return json.loads(text_result)
     except Exception as e:
-        return {
-            "kcal": 250, "protein": 5, "beschreibung": text_prompt,
-            "gicht_bewertung": "grün", "mahlzeit_notiz": f"Erfasst via Text (Fallback: {e})"
-        }
+        raise Exception(f"Fehler beim Parsen der JSON-Antwort: {e} | Rohdaten: {res_json}")
 
-def analyze_workout(api_key, images, text_prompt):
-    client = genai.Client(api_key=api_key)
-    prompt = f"""
-    Du bist der Fitness-Coach von Matthias. Analysiere diese Aktivität: {text_prompt}.
-    Gib das Ergebnis STRENG im JSON-Format zurück:
-    {{
-        "schritte": 0,
-        "zirkel_min": 0,
-        "zirkel_details": "Übungen/Wdh",
-        "bike_km": 0.0,
-        "bike_modus": "Modus",
-        "sonstiges": "Sonstiges",
-        "workout_notiz": "Motivierender Satz."
-    }}
-    """
-    contents = [prompt]
-    if images:
-        for img in images:
-            contents.append(img)
-        
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(response_mime_type="application/json")
-        )
-        return json.loads(clean_json_response(response.text))
-    except Exception as e:
-        return {
-            "schritte": 0, "zirkel_min": 0, "zirkel_details": "",
-            "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": f"Starke Leistung! (Fallback: {e})"
-        }
+def analyze_waage(api_key, pil_imgs):
+    prompt = (
+        "Analysiere dieses Waagen- oder Körperfettwaagen-Foto. "
+        "Extrahiere folgende Werte als JSON mit exakt diesen Schlüsseln (als Float oder null, falls nicht vorhanden): "
+        '{"gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0}'
+    )
+    return call_gemini_api(api_key, prompt, pil_imgs)
+
+def analyze_workout(api_key, pil_imgs, txt_input):
+    prompt = (
+        f"Analysiere das Workout basierend auf diesem Text: '{txt_input}' und den angehängten Bildern. "
+        "Extrahiere folgende Werte als JSON mit exakt diesen Schlüsseln: "
+        '{"schritte": 0, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": ""}'
+    )
+    return call_gemini_api(api_key, prompt, pil_imgs)
