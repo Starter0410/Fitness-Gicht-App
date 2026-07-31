@@ -59,11 +59,11 @@ def analyze_workout(api_key, pil_imgs, txt_input):
     )
     return call_gemini_api(api_key, prompt, pil_imgs)
 
-def analyze_image(api_key, pil_imgs, txt_input=""):
-    """Universelle Analyse für Mahlzeiten/Lebensmittel, falls views_meals darauf zugreift."""
+def analyze_images_or_text(api_key, pil_imgs, txt_input):
     prompt = (
-        f"Analysiere das Essen/die Mahlzeit basierend auf diesem Text: '{txt_input}' und den Bildern. "
-        "Schätze die Nährwerte und gib sie als JSON mit exakt diesen Schlüsseln zurück: "
-        '{"kcal": 0, "protein": 0.0, "notiz": ""}'
+        f"Analysiere diese Mahlzeit basierend auf dem Text: '{txt_input}' und den Bildern. "
+        "Schätze die Nährwerte und den Purin- bzw. Gicht-Status. "
+        "Gib das Ergebnis als JSON mit exakt diesen Schlüsseln zurück: "
+        '{"kcal": 0, "protein": 0, "beschreibung": "", "gicht_bewertung": "grün", "mahlzeit_notiz": ""}'
     )
-    return call_gemini_api(api_key, prompt, pil_imgs if pil_imgs else [])
+    return call_gemini_api(api_key, prompt, pil_imgs)
