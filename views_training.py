@@ -19,29 +19,36 @@ def show_image_previews(files):
 def render_waage_page(api_key, save_callback):
     render_back_button()
     st.subheader("⚖️ Waagen-Messung")
+    
     imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
     show_image_previews(imgs_w)
     
-    if imgs_w:
-        if st.button("🤖 Waage analysieren", type="primary"):
-            pil_imgs = [Image.open(f) for f in imgs_w]
-            res = analyze_waage(api_key, pil_imgs)
-            
-            # --- FÜGE DIESE ZEILE EIN, UM ZU SEHEN, WAS GEMINI LIEFERT ---
-            st.write("DEBUG-ANTWORT VON GEMINI:", res)
-            
-            st.session_state["waage_data"] = res
-            
-            if res.get("gewicht") is not None: 
-                st.session_state["saved_g"] = res["gewicht"]
-            if res.get("kfa") is not None: 
-                st.session_state["saved_k"] = res["kfa"]
-            if res.get("skelettmuskel") is not None: 
-                st.session_state["saved_m"] = res["skelettmuskel"]
-            
-            save_callback()
-            st.success("Waagendaten erfolgreich erkannt und übernommen!")
-            st.rerun()
+    # Stabiler Button mit direktem Feedback
+    if st.button("🤖 Waage analysieren", type="primary", key="btn_analyze_waage"):
+        if imgs_w:
+            with st.spinner("Analysiere Waagen-Bild mit Gemini..."):
+                try:
+                    pil_imgs = [Image.open(f) for f in imgs_w]
+                    res = analyze_waage(api_key, pil_imgs)
+                    
+                    st.write("DEBUG ERGEBNIS:", res) # Zeigt dir sofort an, was zurückkommt
+                    
+                    st.session_state["waage_data"] = res
+                    
+                    if res.get("gewicht") is not None: 
+                        st.session_state["saved_g"] = res["gewicht"]
+                    if res.get("kfa") is not None: 
+                        st.session_state["saved_k"] = res["kfa"]
+                    if res.get("skelettmuskel") is not None: 
+                        st.session_state["saved_m"] = res["skelettmuskel"]
+                    
+                    save_callback()
+                    st.success("Waagendaten erfolgreich erkannt und übernommen!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Fehler bei der Bildverarbeitung: {e}")
+        else:
+            st.warning("Bitte lade zuerst mindestens ein Bild der Waage hoch!")
 
     w_data = st.session_state.get("waage_data", {})
     with st.form("waage_form"):
