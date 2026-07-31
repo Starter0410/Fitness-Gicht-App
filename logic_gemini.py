@@ -1,20 +1,32 @@
 from google import genai
 from google.genai import types
 import json
+import streamlit as st
 
 def call_gemini_sdk(api_key, prompt_text, pil_imgs):
-    client = genai.Client(api_key=api_key)
-    contents = [prompt_text] + pil_imgs
-    
-    # Nutzung von gemini-1.5-flash, um die Quota-Sperre des 2.0-Modells im Free Tier zu umgehen
-    response = client.models.generate_content(
-        model='gemini-1.5-flash',
-        contents=contents,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json"
-        ),
-    )
-    return json.loads(response.text)
+    try:
+        client = genai.Client(api_key=api_key)
+        contents = [prompt_text] + pil_imgs
+        
+        # Nutzung von gemini-1.5-flash zur Umgehung der 2.0-Modell-Sperre im Free Tier
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json"
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        st.warning(f"Hinweis: KI-Anfrage blockiert ({e}). Nutze einfach die Eingabefelder unten.")
+        # Gibt ein sicheres Fallback-Dictionary zurück, damit NoneType-Fehler bei .get() vermieden werden
+        return {
+            "gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0,
+            "schritte": 0, "zirkel_min": 0, "zirkel_details": "", 
+            "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": "",
+            "kcal": 0, "protein": 0, "beschreibung": "", 
+            "gicht_bewertung": "grün", "mahlzeit_notiz": ""
+        }
 
 def analyze_waage(api_key, pil_imgs):
     prompt = (
