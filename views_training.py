@@ -28,12 +28,16 @@ def render_waage_page(api_key, save_callback):
             res = analyze_waage(api_key, pil_imgs)
             st.session_state["waage_data"] = res
             
-            if res.get("gewicht") is not None: st.session_state["saved_g"] = res["gewicht"]
-            if res.get("kfa") is not None: st.session_state["saved_k"] = res["kfa"]
-            if res.get("skelettmuskel") is not None: st.session_state["saved_m"] = res["skelettmuskel"]
+            if res.get("gewicht") is not None: 
+                st.session_state["saved_g"] = res["gewicht"]
+            if res.get("kfa") is not None: 
+                st.session_state["saved_k"] = res["kfa"]
+            if res.get("skelettmuskel") is not None: 
+                st.session_state["saved_m"] = res["skelettmuskel"]
             
             save_callback()
             st.success("Waagendaten erfolgreich erkannt und übernommen!")
+            st.rerun()
 
     w_data = st.session_state.get("waage_data", {})
     with st.form("waage_form"):
