@@ -1,25 +1,20 @@
 from google import genai
 from google.genai import types
 import json
-import streamlit as st
 
 def call_gemini_sdk(api_key, prompt_text, pil_imgs):
-    try:
-        client = genai.Client(api_key=api_key)
-        contents = [prompt_text] + pil_imgs
-        
-        response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json"
-            ),
-        )
-        return json.loads(response.text)
-    except Exception as e:
-        # Fängt jegliche API- oder Quota-Fehler ab, damit die App nicht crasht
-        st.warning(f"Hinweis zur Bildanalyse: Die KI-Schnittstelle ist aktuell eingeschränkt ({e}). Du kannst die Werte einfach direkt im Formular darunter eintragen!")
-        return None
+    client = genai.Client(api_key=api_key)
+    contents = [prompt_text] + pil_imgs
+    
+    # Nutzung von gemini-1.5-flash, um die Quota-Sperre des 2.0-Modells im Free Tier zu umgehen
+    response = client.models.generate_content(
+        model='gemini-1.5-flash',
+        contents=contents,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json"
+        ),
+    )
+    return json.loads(response.text)
 
 def analyze_waage(api_key, pil_imgs):
     prompt = (
