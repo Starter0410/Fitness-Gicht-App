@@ -16,16 +16,16 @@ def clean_json_response(text_res):
 def analyze_waage(api_key, images):
     client = genai.Client(api_key=api_key)
     prompt = """
-    Du bist ein extrem präziser Daten-Extraktor für Körperanalyse-Waagen (z.B. RENPHO oder ähnliche Apps). 
+    Du bist ein extrem präziser Daten-Extraktor für Körperanalyse-Waagen. 
     Analysiere das übergebene Bild und suche nach folgenden drei Messwerten:
-    1. "gewicht": Der Wert für 'Gewicht' in kg (suche nach Zahlen wie z.B. 70.4).
-    2. "kfa": Der Wert für 'Körperfettanteil' oder 'KFA' in Prozent (suche nach Prozentzahlen wie z.B. 13.9).
-    3. "skelettmuskel": Der Wert für 'Skelettmuskelmasse' in kg (suche nach Muskelmasse-Werten wie z.B. 34.5).
+    1. "gewicht": Der Wert für 'Gewicht' in kg (als Dezimalzahl, z.B. 70.4).
+    2. "kfa": Der Wert für 'Körperfettanteil' oder 'KFA' in Prozent (als Dezimalzahl, z.B. 13.9).
+    3. "skelettmuskel": Der Wert für 'Skelettmuskelmasse' in kg (als Dezimalzahl, z.B. 34.5).
 
-    Ignoriere Einheiten wie 'kg' oder '%'. Wenn ein Wert als Komma geschrieben ist (z.B. 70,4), wandle ihn in einen Punkt um (70.4).
-    Falls ein Wert absolut nicht im Bild zu finden ist, setze ihn auf null.
+    Ignoriere Einheiten. Ersetze Kommas durch Punkte.
+    Falls ein Wert nicht gefunden wird, setze ihn auf null.
     
-    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (kein zusätzlicher Text, kein Markdown drumherum, nur das reine JSON):
+    Gib das Ergebnis STRENG im folgenden JSON-Format zurück (nur das reine JSON, kein Markdown drumherum):
     {
         "gewicht": 0.0,
         "kfa": 0.0,
@@ -60,8 +60,9 @@ def analyze_waage(api_key, images):
             "kfa": parse_val(res_json.get("kfa")),
             "skelettmuskel": parse_val(res_json.get("skelettmuskel")),
         }
-    except Exception:
-        return {"gewicht": None, "kfa": None, "skelettmuskel": None}
+    except Exception as e:
+        # HIER GEBEN WIR DEN FEHLER JETZT DIREKT AUS, STATT IHN ZU VERSCHLUCKEN!
+        raise RuntimeError(f"API/Parsing-Fehler: {str(e)}")
 
 def analyze_images_or_text(api_key, images, text_prompt):
     client = genai.Client(api_key=api_key)
