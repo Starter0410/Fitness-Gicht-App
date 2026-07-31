@@ -1,6 +1,5 @@
-streamlit
+google-genai
+requests
 openpyxl
 pandas
-google-genai
-Pillow
-streamlit-option-menu
+pillow
