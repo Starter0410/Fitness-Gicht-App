@@ -11,7 +11,7 @@ def analyze_food_with_ai(description, uploaded_files):
     gicht = "Gelb"
     return cal, prot, notiz, gicht
 
-def render_meal_section(key, title, api_key, save_callback):
+def render_meal_page(title, key, api_key, save_callback):
     st.markdown(f"### 🍽️ {title} erfassen")
     st.write("Lade Fotos hoch oder tippe die Mahlzeit ein. Die KI berechnet Nährwerte und den Gicht-Status.")
 
@@ -60,19 +60,8 @@ def render_meal_section(key, title, api_key, save_callback):
     else:
         st.info("Noch keine Einträge.")
 
-# Wrapper-Funktionen, die exakt von deiner app.py importiert werden:
-def render_meal_page(api_key, save_callback):
-    # Falls das die Hauptseite für Mahlzeiten ist, teilen wir es in Tabs oder zeigen Frühstück/Mittag/Abend
-    tab1, tab2, tab3 = st.tabs(["🌅 Frühstück", "☀️ Mittagessen", "🌙 Abendessen"])
-    with tab1:
-        render_meal_section("fruehstueck", "Frühstück", api_key, save_callback)
-    with tab2:
-        render_meal_section("mittag", "Mittagessen", api_key, save_callback)
-    with tab3:
-        render_meal_section("abend", "Abendessen", api_key, save_callback)
-
 def render_snacks_page(api_key, save_callback):
-    render_meal_section("snacks", "Snacks & Zwischenmahlzeiten", api_key, save_callback)
+    render_meal_page("Snacks", "snacks", api_key, save_callback)
 
 def render_drinks_page(api_key, save_callback):
-    render_meal_section("getraenke", "Getränke", api_key, save_callback)
+    render_meal_page("Getränke", "getraenke", api_key, save_callback)
