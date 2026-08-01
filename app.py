@@ -67,7 +67,6 @@ def save_current_day_to_excel():
     
     m = st.session_state["meals"]
     
-    # Sauberer zusammenbauen ohne leere Artefakte
     f_list = [item["desc"] for item in m.get("fruehstueck", []) if item.get("desc")]
     m_list = [item["desc"] for item in m.get("mittagessen", []) if item.get("desc")]
     a_list = [item["desc"] for item in m.get("abendessen", []) if item.get("desc")]
@@ -80,7 +79,7 @@ def save_current_day_to_excel():
     if s_list: parts.append(f"Snacks: {', '.join(s_list)}")
     if meta.get("notizen"): parts.append(f"Notiz: {meta['notizen']}")
     
-    all_desc = " | ".join(parts) if parts.append else "Keine Einträge"
+    all_desc = " | ".join(parts) if parts else "Keine Einträge"
 
     new_row = {
         "Datum": str(date.today()),
@@ -151,10 +150,13 @@ if tab != "🏠 Startseite":
     st.markdown("---")
 
 if tab == "🏠 Startseite":
-    # Logo / Emoji über der Überschrift platziert + Hipster/Gen-Z Subtitle
-    st.markdown("### 🏋️‍♂️")
+    # Logo zentriert über der Überschrift mittels Streamlit Columns
+    _, col_logo, _ = st.columns([3, 1, 3])
+    with col_logo:
+        st.markdown("# 🏋️‍♂️")
+        
     st.title("Gicht & Body-Recomposition Tracker")
-    st.caption("✨ *vibe check: locked in 🔒* &nbsp;|&nbsp; *the best version of me* &nbsp;|&nbsp; **powered by starter.exe**")
+    st.markdown("<p style='text-align: center; color: gray;'>the best version of me @ starter</p>", unsafe_allow_html=True)
     
     st.write(f"**Datum:** {date.today().strftime('%d.%m.%Y')}")
     
@@ -164,11 +166,10 @@ if tab == "🏠 Startseite":
     col1.metric("Heutige Kalorien", f"{total_kcal} kcal")
     col2.metric("Heutiges Protein", f"{total_prot} g")
     
-    # Kleine visuelle Fortschrittsbalken (ersatz für Tortendiagramme / Makro-Anzeige)
+    # Fortschrittsbalken
     st.markdown("---")
     st.subheader("⚡ Macro & Target Status")
     
-    # Beispiel-Zielwerte (kannst du anpassen: z.B. 2500 kcal, 160g Protein)
     target_kcal = 2500
     target_prot = 160
     
