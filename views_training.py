@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 from datetime import date
 
 def render_waage_page(api_key, save_callback):
@@ -61,7 +63,7 @@ def render_statistik_page(excel_file):
     df = df.sort_values("Datum")
 
     # -------------------------------------------------------------------------
-    # AMPEL-STATISTIK (Grüne, Gelbe, Rote Tage)
+    # AMPEL-STATISTIK
     # -------------------------------------------------------------------------
     st.markdown("### 🚦 Tages-Bewertung (Ampel-Status)")
     st.write("Definition: 🟢 Perfekt im Ziel | 🟡 Moderater Puffer | 🔴 Stark abgewichen")
@@ -88,53 +90,52 @@ def render_statistik_page(excel_file):
 
     st.markdown("---")
 
-    chart_df = df.set_index("Datum")
-
     st.markdown("### 🧬 Körperwerte (Body Recomp)")
     
-    # 1. Gewicht (Fokus-Bereich: 60 - 80 kg)
-    if "KG" in chart_df.columns:
-        st.write("**Gewicht (KG) – Bereich: 60 - 80 kg**")
-        temp_kg = chart_df[["KG"]].copy()
-        temp_kg.loc[temp_kg.index[0], "KG"] = 60.0  # Untere Grenze erzwingen
-        temp_kg.loc[temp_kg.index[-1], "KG"] = 80.0 # Obere Grenze erzwingen
-        st.line_chart(temp_kg)
+    # 1. Gewicht (Fester Bereich: 60 - 80)
+    if "KG" in df.columns:
+        fig_kg = px.line(df, x="Datum", y="KG", title="Gewicht (KG) – Bereich: 60 - 80 kg")
+        fig_kg.update_yaxes(range=[60, 80])
+        st.plotly_chart(fig_kg, use_container_width=True)
 
-    # 2. KFA (Fokus-Bereich: 10 - 19 %)
-    if "KFA" in chart_df.columns:
-        st.write("**Körperfettanteil KFA (%) – Bereich: 10 - 19 %**")
-        temp_kfa = chart_df[["KFA"]].copy()
-        temp_kfa.loc[temp_kfa.index[0], "KFA"] = 10.0
-        temp_kfa.loc[temp_kfa.index[-1], "KFA"] = 19.0
-        st.line_chart(temp_kfa)
+    # 2. KFA (Fester Bereich: 10 - 19)
+    if "KFA" in df.columns:
+        fig_kfa = px.line(df, x="Datum", y="KFA", title="Körperfettanteil KFA (%) – Bereich: 10 - 19 %")
+        fig_kfa.update_yaxes(range=[10, 19])
+        st.plotly_chart(fig_kfa, use_container_width=True)
 
-    # 3. Skelettmuskelanteil (Fokus-Bereich: 30 - 40)
-    if "Skel.Musk" in chart_df.columns:
-        st.write("**Skelettmuskulatur – Bereich: 30 - 40**")
-        temp_musk = chart_df[["Skel.Musk"]].copy()
-        temp_musk.loc[temp_musk.index[0], "Skel.Musk"] = 30.0
-        temp_musk.loc[temp_musk.index[-1], "Skel.Musk"] = 40.0
-        st.line_chart(temp_musk)
+    # 3. Skelettmuskulatur (Fester Bereich: 30 - 40) - prüft gängige Schreibweisen
+    musk_col = next((col for col in ["Skel.Musk", "Skelettmuskulatur", "Muskeln"] if col in df.columns), None)
+    if musk_col:
+        fig_musk = px.line(df, x="Datum", y=musk_col, title=f"Skelettmuskulatur – Bereich: 30 - 40")
+        fig_musk.update_yaxes(range=[30, 40])
+        st.plotly_chart(fig_musk, use_container_width=True)
+    else:
+        st.info("Spalte für Skelettmuskulatur (z.B. 'Skel.Musk') nicht in der Excel gefunden.")
 
     st.markdown("---")
-    st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken (inkl. Ziellinien)")
+    st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken (mit Ziellinie)")
 
-    # Ziellinien nur bei den Balkendiagrammen
-    chart_df["Ziel_Schritte"] = 10000
-    chart_df["Ziel_KCAL"] = 2150
-    chart_df["Ziel_Prot"] = 140
+    # Hilfsfunktion für Balkendiagramme mit echter horizontaler Ziellinie
+    def create_bar_with_target(data, y_col, title, target_val):
+        fig = px.bar(data, x="Datum", y=y_col, title=title)
+        fig.add_hline(
+            y=target_val, 
+            line_dash="dash", 
+            line_color="red", 
+            annotation_text=f"Ziel: {target_val}", 
+            annotation_position="top right"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-    if "Schritte" in chart_df.columns:
-        st.write("**Schritte-Verlauf (Ziel: 10.000)**")
-        st.bar_chart(chart_df[["Schritte", "Ziel_Schritte"]])
+    if "Schritte" in df.columns:
+        create_bar_with_target(df, "Schritte", "Schritte-Verlauf (Ziel: 10.000)", 10000)
 
-    if "KCAL" in chart_df.columns:
-        st.write("**Kalorien-Trend (Ziel: 2.150 kcal)**")
-        st.bar_chart(chart_df[["KCAL", "Ziel_KCAL"]])
+    if "KCAL" in df.columns:
+        create_bar_with_target(df, "KCAL", "Kalorien-Trend (Ziel: 2.150 kcal)", 2150)
 
-    if "Prot" in chart_df.columns:
-        st.write("**Protein-Trend (Ziel: 140 g)**")
-        st.bar_chart(chart_df[["Prot", "Ziel_Prot"]])
+    if "Prot" in df.columns:
+        create_bar_with_target(df, "Prot", "Protein-Trend (Ziel: 140 g)", 140)
 
     st.markdown("---")
     st.markdown("### 📋 Vollständige Datentabelle")
