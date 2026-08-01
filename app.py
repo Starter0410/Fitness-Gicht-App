@@ -29,9 +29,9 @@ if "meals" not in st.session_state:
 
 if "drinks" not in st.session_state:
     st.session_state["drinks"] = {
-        "wasser_soda": 3.0,
-        "kaffee": 3,
-        "whey_scoops": 1,
+        "wasser_soda": 0,
+        "kaffee": 0,
+        "whey_scoops": 0,
         "redbull": 0,
         "sonstiges_txt": "",
         "sonstiges_kcal": 0,
@@ -40,10 +40,10 @@ if "drinks" not in st.session_state:
 
 if "daily_meta" not in st.session_state:
     st.session_state["daily_meta"] = {
-        "gewicht": 69.7,
-        "kfa": 13.4,
-        "skel_musk": 34.3,
-        "schritte": 8000,
+        "gewicht": 0,
+        "kfa": 0,
+        "skel_musk": 0,
+        "schritte": 0,
         "notizen": ""
     }
 
