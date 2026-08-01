@@ -2,8 +2,8 @@ import streamlit as st
 from PIL import Image
 from logic_gemini import analyze_images_or_text
 
-def render_back_button():
-    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
+def render_back_button(unique_key="back_home_btn"):
+    if st.button("⬅️ Zurück zur Startseite", key=unique_key, use_container_width=True):
         st.session_state["nav_tab"] = "🏠 Startseite"
         st.rerun()
     st.markdown("---")
@@ -23,7 +23,7 @@ def show_image_previews(files):
             cols[idx % 4].image(Image.open(file), use_container_width=True)
 
 def render_meal_page(tab_name, meal_key, api_key, save_callback):
-    render_back_button()
+    render_back_button(unique_key=f"back_{meal_key}")
     st.subheader(f"Mahlzeit erfassen: {tab_name}")
     
     # Sicherstellen, dass der Key als Liste im Session State existiert
@@ -80,14 +80,14 @@ def render_meal_page(tab_name, meal_key, api_key, save_callback):
             display_gicht_badge(item["gicht"], item.get("notiz", ""))
 
 def render_snacks_page(api_key, save_callback):
-    render_back_button()
+    render_back_button(unique_key="back_snacks")
     st.subheader("🍏 Snacks & Zwischenmahlzeiten")
     imgs_s = st.file_uploader("Foto(s) vom Snack", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
     show_image_previews(imgs_s)
     
     txt_s = st.text_input("Oder Snack beschreiben", key="snack_txt")
     
-    if st.button("🤖 Snack hinzufügen", type="primary"):
+    if st.button("🤖 Snack hinzufügen", key="snack_add_btn", type="primary"):
         if imgs_s or txt_s:
             pil_imgs = [Image.open(f) for f in imgs_s] if imgs_s else []
             res = analyze_images_or_text(api_key, pil_imgs, txt_s if txt_s else "Kein Text angegeben")
@@ -110,7 +110,7 @@ def render_snacks_page(api_key, save_callback):
             display_gicht_badge(s["gicht"], s.get("notiz", ""))
 
 def render_drinks_page(save_callback):
-    render_back_button()
+    render_back_button(unique_key="back_drinks")
     st.subheader("🥤 Getränke-Zähler")
     d = st.session_state["drinks"]
     
