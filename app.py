@@ -5,7 +5,7 @@ from io import BytesIO
 
 # Importiere deine Ansichten
 from views_meals import render_meal_page, render_snacks_page, render_drinks_page
-from views_statistik import render_statistik_page
+from views_training import render_statistik_page
 
 # Excel-Dateiname
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
