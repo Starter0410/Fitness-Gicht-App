@@ -2,12 +2,6 @@ import streamlit as st
 from PIL import Image
 from logic_gemini import analyze_images_or_text
 
-def render_back_button(unique_key="back_home_btn"):
-    if st.button("⬅️ Zurück zur Startseite", key=unique_key, use_container_width=True):
-        st.session_state["nav_tab"] = "🏠 Startseite"
-        st.rerun()
-    st.markdown("---")
-
 def display_gicht_badge(status, notiz=""):
     if status == "rot":
         st.error("🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *" + notiz + "*")
