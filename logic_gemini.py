@@ -6,11 +6,15 @@ import streamlit as st
 def call_gemini_sdk(api_key, prompt_text, pil_imgs):
     try:
         client = genai.Client(api_key=api_key)
-        contents = [prompt_text] + pil_imgs
         
-        # Nutzung von gemini-1.5-flash zur Umgehung der 2.0-Modell-Sperre im Free Tier
+        # Inhalt dynamisch aufbauen (verhindert Fehler, wenn keine Bilder hochgeladen wurden)
+        contents = [prompt_text]
+        if pil_imgs:
+            contents.extend(pil_imgs)
+        
+        # Mit deinem aktiven Guthaben nutzen wir nun stabil gemini-2.0-flash
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.0-flash',
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -18,8 +22,7 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
         )
         return json.loads(response.text)
     except Exception as e:
-        st.warning(f"Hinweis: KI-Anfrage blockiert ({e}). Nutze einfach die Eingabefelder unten.")
-        # Gibt ein sicheres Fallback-Dictionary zurück, damit NoneType-Fehler bei .get() vermieden werden
+        st.warning(f"Hinweis: KI-Anfrage konnte nicht verarbeitet werden ({e}). Nutze die Eingabefelder unten.")
         return {
             "gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0,
             "schritte": 0, "zirkel_min": 0, "zirkel_details": "", 
@@ -39,7 +42,7 @@ def analyze_waage(api_key, pil_imgs):
 
 def analyze_workout(api_key, pil_imgs, txt_input):
     prompt = (
-        f"Analysiere das Workout basierend auf diesem Text: '{txt_input}' und den Bildern. "
+        f"Analysiere das Workout basierend auf diesem Text: '{txt_input}' und den eventuellen Bildern. "
         "Antworte AUSSCHLIESSLICH im JSON-Format mit diesen exakten Schlüsseln: "
         '{"schritte": 0, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "workout_notiz": ""}'
     )
@@ -48,7 +51,7 @@ def analyze_workout(api_key, pil_imgs, txt_input):
 def analyze_images_or_text(api_key, pil_imgs, txt_input):
     prompt = (
         f"Analysiere diese Mahlzeit basierend auf dem Text: '{txt_input}' und den Bildern. "
-        "Schätze die Nährwerte und den Purin- bzw. Gicht-Status. "
+        "Ermittle realistische, genaue Nährwerte (Kalorien, Protein) und den Purin- bzw. Gicht-Status. "
         "Antworte AUSSCHLIESSLICH im JSON-Format mit diesen exakten Schlüsseln: "
         '{"kcal": 0, "protein": 0, "beschreibung": "", "gicht_bewertung": "grün", "mahlzeit_notiz": ""}'
     )
