@@ -1,11 +1,10 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from io import BytesIO
 
 # Importiere deine Ansichten
 from views_meals import render_meal_page, render_snacks_page, render_drinks_page
-from views_training import render_statistik_page
+from views_training import render_statistik_page, render_training_page
 
 # Excel-Dateiname
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
@@ -55,7 +54,6 @@ def save_current_day_to_excel():
     totals_kcal, totals_prot = get_todays_totals()
     meta = st.session_state["daily_meta"]
     
-    # Mahlzeiten-Beschreibungen für die Excel-Notiz zusammenfassen
     m = st.session_state["meals"]
     f_desc = ", ".join([item["desc"] for item in m.get("fruehstueck", [])])
     m_desc = ", ".join([item["desc"] for item in m.get("mittagessen", [])])
@@ -77,7 +75,6 @@ def save_current_day_to_excel():
 
     try:
         df = pd.read_excel(EXCEL_FILE)
-        # Falls das Datum schon existiert, überschreiben oder anhängen
         if not df.empty and "Datum" in df.columns:
             df = df[df["Datum"] != str(date.today())]
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
@@ -90,7 +87,6 @@ def get_todays_totals():
     m = st.session_state["meals"]
     d = st.session_state["drinks"]
     
-    # Da Frühstück, Mittag und Abend nun Listen sind, summieren wir sie sauber auf:
     fruehstueck_kcal = sum([item["kcal"] for item in m.get("fruehstueck", [])])
     fruehstueck_prot = sum([item["prot"] for item in m.get("fruehstueck", [])])
     
@@ -117,7 +113,6 @@ def get_todays_totals():
 # -------------------------------------------------------------------------
 st.set_page_config(page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered")
 
-# API Key Eingabe (Sidebar)
 with st.sidebar:
     st.subheader("⚙️ Konfiguration")
     st.session_state["api_key"] = st.text_input("Gemini API Key", value=st.session_state["api_key"], type="password")
@@ -134,7 +129,6 @@ if tab == "🏠 Startseite":
     
     total_kcal, total_prot = get_todays_totals()
     
-    # Dashboard Metriken
     col1, col2 = st.columns(2)
     col1.metric("Heutige Kalorien", f"{total_kcal} kcal")
     col2.metric("Heutiges Protein", f"{total_prot} g")
@@ -156,6 +150,9 @@ if tab == "🏠 Startseite":
         st.rerun()
     if st.button("🥤 Getränke-Zähler", use_container_width=True):
         st.session_state["nav_tab"] = "Getränke"
+        st.rerun()
+    if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
+        st.session_state["nav_tab"] = "Waage"
         st.rerun()
     if st.button("📊 Statistiken & Tabellen", use_container_width=True):
         st.session_state["nav_tab"] = "Statistiken"
@@ -179,11 +176,10 @@ elif tab == "Snacks":
 elif tab == "Getränke":
     render_drinks_page(save_current_day_to_excel)
 
+elif tab == "Waage":
+    render_training_page(st.session_state["api_key"])
+
 elif tab == "Statistiken":
-    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
-        st.session_state["nav_tab"] = "🏠 Startseite"
-        st.rerun()
-    st.markdown("---")
     render_statistik_page(EXCEL_FILE)
 
 elif tab == "Abschluss":
@@ -207,7 +203,6 @@ elif tab == "Abschluss":
         save_current_day_to_excel()
         st.success("Tagesdaten erfolgreich in die Excel-Tabelle geschrieben!")
         
-        # Download Button bereitstellen
         with open(EXCEL_FILE, "rb") as f:
             excel_bytes = f.read()
         st.download_button(
