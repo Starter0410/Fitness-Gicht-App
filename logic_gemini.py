@@ -11,9 +11,8 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
         if pil_imgs:
             contents.extend(pil_imgs)
         
-        # Nutzen des aktuellen Modells gemäß Google AI Studio
         response = client.models.generate_content(
-            model='gemini-3.1-flash',
+            model='gemini-3.6-flash',
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -38,7 +37,7 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
 def analyze_waage(api_key, pil_imgs):
     prompt = (
         "Analysiere dieses Waagen- oder Körperfettwaagen-Foto. "
-        "Extrahiere folgende Werte: Gewicht in kg, KFA in %, Skelettmuskel in %. "
+        "Extrahiere folgende Werte: Gewicht in kg, KFA in %, Skelettmuskel in kg (Skelettmuskelmasse, meist ein Wert zwischen 25 und 40). "
         "Antworte AUSSCHLIESSLICH im JSON-Format mit diesen exakten Schlüsseln (als Float oder null): "
         '{"gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0}'
     )
