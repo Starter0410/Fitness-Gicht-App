@@ -12,7 +12,7 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
         if pil_imgs:
             contents.extend(pil_imgs)
         
-        # Mit deinem aktiven Guthaben nutzen wir nun stabil gemini-2.0-flash
+        # Mit deinem aktiven Guthaben nutzen wir stabil gemini-2.0-flash
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=contents,
@@ -22,7 +22,8 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
         )
         return json.loads(response.text)
     except Exception as e:
-        st.warning(f"Hinweis: KI-Anfrage konnte nicht verarbeitet werden ({e}). Nutze die Eingabefelder unten.")
+        # Hier wird der Fehler jetzt permanent als roter Kasten angezeigt, bis du ihn siehst
+        st.error(f"🚨 GENAUER FEHLER: {str(e)}")
         return {
             "gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0,
             "schritte": 0, "zirkel_min": 0, "zirkel_details": "", 
