@@ -62,8 +62,44 @@ def render_statistik_page(excel_file):
     df["Datum"] = pd.to_datetime(df["Datum"])
     df = df.sort_values("Datum")
 
+    # Hilfsspalten für Monat und Jahr für den Filter erstellen
+    df["JahrMonat"] = df["Datum"].dt.strftime("%Y-%m")
+    
+    # Verfügbare Monate ermitteln (absteigend, damit der neueste oben steht)
+    verfuegbare_monate = sorted(df["JahrMonat"].unique(), reverse=True)
+    
+    # Aktueller Monat im Format "YYYY-MM" (heute ist August 2026 -> "2026-08")
+    aktueller_monat_str = date.today().strftime("%Y-%m")
+
+    st.markdown("### 📅 Zeitraum-Filter")
+    filter_option = st.selectbox(
+        "Wähle den anzuzeigenden Zeitraum:",
+        ["Aktueller Monat", "Gesamter Zeitraum"] + [f"Monat: {m}" for m in verfuegbare_monate]
+    )
+
+    # DataFrame entsprechend dem Filter einschränken
+    if filter_option == "Aktueller Monat":
+        if aktueller_monat_str in verfuegbare_monate:
+            filtered_df = df[df["JahrMonat"] == aktueller_monat_str].copy()
+        else:
+            # Fallback falls für den aktuellen Monat noch keine Daten existieren
+            filtered_df = df.copy()
+            st.info(f"Für den aktuellen Monat ({aktueller_monat_str}) sind noch keine Daten vorhanden. Zeige alle Daten.")
+    elif filter_option == "Gesamter Zeitraum":
+        filtered_df = df.copy()
+    else:
+        # Ausgewählter spezifischer Monat (z.B. "Monat: 2026-07")
+        gewählter_monat = filter_option.replace("Monat: ", "")
+        filtered_df = df[df["JahrMonat"] == gewählter_monat].copy()
+
+    if filtered_df.empty:
+        st.warning("Für den gewählten Zeitraum sind keine Daten vorhanden.")
+        return
+
+    st.markdown("---")
+
     # -------------------------------------------------------------------------
-    # AMPEL-STATISTIK
+    # AMPEL-STATISTIK (bezogen auf den gefilterten Zeitraum)
     # -------------------------------------------------------------------------
     st.markdown("### 🚦 Tages-Bewertung (Ampel-Status)")
     st.write("Definition: 🟢 Perfekt im Ziel | 🟡 Moderater Puffer | 🔴 Stark abgewichen")
@@ -72,7 +108,7 @@ def render_statistik_page(excel_file):
     target_p = 140
     
     grün, gelb, rot = 0, 0, 0
-    for _, row in df.iterrows():
+    for _, row in filtered_df.iterrows():
         k = row.get("KCAL", 0)
         p = row.get("Prot", 0)
         
@@ -93,30 +129,27 @@ def render_statistik_page(excel_file):
     st.markdown("### 🧬 Körperwerte (Body Recomp)")
     
     # 1. Gewicht (Fester Bereich: 60 - 80)
-    if "KG" in df.columns:
-        fig_kg = px.line(df, x="Datum", y="KG", title="Gewicht (KG) – Bereich: 60 - 80 kg")
+    if "KG" in filtered_df.columns:
+        fig_kg = px.line(filtered_df, x="Datum", y="KG", title="Gewicht (KG) – Bereich: 60 - 80 kg")
         fig_kg.update_yaxes(range=[60, 80])
         st.plotly_chart(fig_kg, use_container_width=True)
 
     # 2. KFA (Fester Bereich: 10 - 19)
-    if "KFA" in df.columns:
-        fig_kfa = px.line(df, x="Datum", y="KFA", title="Körperfettanteil KFA (%) – Bereich: 10 - 19 %")
+    if "KFA" in filtered_df.columns:
+        fig_kfa = px.line(filtered_df, x="Datum", y="KFA", title="Körperfettanteil KFA (%) – Bereich: 10 - 19 %")
         fig_kfa.update_yaxes(range=[10, 19])
         st.plotly_chart(fig_kfa, use_container_width=True)
 
-    # 3. Skelettmuskulatur (Fester Bereich: 30 - 40) - prüft gängige Schreibweisen
-    musk_col = next((col for col in ["Skel.Musk", "Skelettmuskulatur", "Muskeln"] if col in df.columns), None)
+    # 3. Skelettmuskulatur (Fester Bereich: 30 - 40)
+    musk_col = next((col for col in ["Skel.Musk", "Skelettmuskulatur", "Muskeln"] if col in filtered_df.columns), None)
     if musk_col:
-        fig_musk = px.line(df, x="Datum", y=musk_col, title=f"Skelettmuskulatur – Bereich: 30 - 40")
+        fig_musk = px.line(filtered_df, x="Datum", y=musk_col, title=f"Skelettmuskulatur – Bereich: 30 - 40")
         fig_musk.update_yaxes(range=[30, 40])
         st.plotly_chart(fig_musk, use_container_width=True)
-    else:
-        st.info("Spalte für Skelettmuskulatur (z.B. 'Skel.Musk') nicht in der Excel gefunden.")
 
     st.markdown("---")
     st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken (mit Ziellinie)")
 
-    # Hilfsfunktion für Balkendiagramme mit echter horizontaler Ziellinie
     def create_bar_with_target(data, y_col, title, target_val):
         fig = px.bar(data, x="Datum", y=y_col, title=title)
         fig.add_hline(
@@ -128,15 +161,15 @@ def render_statistik_page(excel_file):
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    if "Schritte" in df.columns:
-        create_bar_with_target(df, "Schritte", "Schritte-Verlauf (Ziel: 10.000)", 10000)
+    if "Schritte" in filtered_df.columns:
+        create_bar_with_target(filtered_df, "Schritte", "Schritte-Verlauf (Ziel: 10.000)", 10000)
 
-    if "KCAL" in df.columns:
-        create_bar_with_target(df, "KCAL", "Kalorien-Trend (Ziel: 2.150 kcal)", 2150)
+    if "KCAL" in filtered_df.columns:
+        create_bar_with_target(filtered_df, "KCAL", "Kalorien-Trend (Ziel: 2.150 kcal)", 2150)
 
-    if "Prot" in df.columns:
-        create_bar_with_target(df, "Prot", "Protein-Trend (Ziel: 140 g)", 140)
+    if "Prot" in filtered_df.columns:
+        create_bar_with_target(filtered_df, "Prot", "Protein-Trend (Ziel: 140 g)", 140)
 
     st.markdown("---")
-    st.markdown("### 📋 Vollständige Datentabelle")
-    st.dataframe(df)
+    st.markdown("### 📋 Vollständige Datentabelle (gefiltert)")
+    st.dataframe(filtered_df)
