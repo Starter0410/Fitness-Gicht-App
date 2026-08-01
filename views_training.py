@@ -99,25 +99,26 @@ def render_statistik_page(excel_file):
     st.markdown("---")
 
     # -------------------------------------------------------------------------
-    # AMPEL-STATISTIK (bezogen auf den gefilterten Zeitraum)
+    # AMPEL-STATISTIK (Gicht Status Auswertung)
     # -------------------------------------------------------------------------
-    st.markdown("### 🚦 Tages-Bewertung (Ampel-Status)")
-    st.write("Definition: 🟢 Perfekt im Ziel | 🟡 Moderater Puffer | 🔴 Stark abgewichen")
-    
-    target_k = 2150
-    target_p = 140
+    st.markdown("### 🚦 Tages-Bewertung (Gicht Status)")
+    st.write("Auswertung der Spalte 'Gicht Status' (Grün, Gelb, Rot)")
     
     grün, gelb, rot = 0, 0, 0
-    for _, row in filtered_df.iterrows():
-        k = row.get("KCAL", 0)
-        p = row.get("Prot", 0)
-        
-        if abs(k - target_k) <= 200 and p >= (target_p - 15):
-            grün += 1
-        elif abs(k - target_k) <= 400 and p >= (target_p - 30):
-            gelb += 1
-        else:
-            rot += 1
+    
+    if "Gicht Status" in filtered_df.columns:
+        for val in filtered_df["Gicht Status"]:
+            # None, NaN oder leere Einträge ignorieren
+            if pd.isna(val) or str(val).strip().lower() in ["none", "", "nan"]:
+                continue
+            
+            val_str = str(val).strip().capitalize()
+            if val_str == "Grün":
+                grün += 1
+            elif val_str == "Gelb":
+                gelb += 1
+            elif val_str == "Rot":
+                rot += 1
 
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("🟢 Grüne Tage", grün)
