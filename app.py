@@ -84,7 +84,7 @@ def get_worst_gicht_status(items):
     return worst_word
 
 def generate_summary_string():
-    """Generiert eine intelligente, motivierende Tagesnotiz (Gicht, Recomp, Training)."""
+    """Generiert eine fließende, motivierende Tageszusammenfassung als Text."""
     m = st.session_state["meals"]
     w = st.session_state["workout"]
     meta = st.session_state["daily_meta"]
@@ -93,70 +93,54 @@ def generate_summary_string():
     target_kcal = 2150
     target_prot = 140
     
-    # 1. Gicht-Auswertung über alle Mahlzeiten sammeln
+    # 1. Gicht-Status ermitteln
     all_statuses = []
-    meal_details = []
-    for cat_label, cat_key in [("Frühstück", "fruehstueck"), ("Mittag", "mittagessen"), ("Abend", "abendessen"), ("Snacks", "snacks")]:
+    for cat_key in ["fruehstueck", "mittagessen", "abendessen", "snacks"]:
         items = m.get(cat_key, [])
         if items:
-            worst_cat_status = get_worst_gicht_status(items)
-            all_statuses.append(worst_cat_status)
-            for itm in items:
-                meal_details.append(f"{cat_label}: {itm['desc']} ({itm['kcal']} kcal, {itm['prot']}g, Gicht: {itm.get('gicht_status', 'Grün')})")
-    
+            all_statuses.append(get_worst_gicht_status(items))
+            
     if "Rot" in all_statuses:
-        gicht_text = "⚠️ Gicht-Status: Heute waren rote (purinreiche) Komponenten dabei. Achte auf gute Hydrierung und schau, dass es morgen wieder purinärmer wird!"
+        gicht_part = "heute war gicht-technisch leider etwas Vorsicht geboten wegen purinreicherer Kost,"
     elif "Gelb" in all_statuses:
-        gicht_text = "⚠️ Gicht-Status: Solides Mittelfeld (Gelb). Ganz okay, aber im Blick behalten!"
+        gicht_part = "bei der Gicht hatten wir heute ein solides Mittelfeld,"
     elif all_statuses:
-        gicht_text = "🟢 Gicht-Status: Vorbildlich! Alle Mahlzeiten im grünen Bereich. Deine Gelenke werden es dir danken!"
+        gicht_part = "gicht-technisch war das heute absolut vorbildlich im grünen Bereich,"
     else:
-        gicht_text = "Gicht-Status: Noch keine Mahlzeiten erfasst."
+        gicht_part = "gicht-technisch gab es heute noch keine großen Einträge,"
 
-    # 2. Body Recomposition & Makros Bewertung
+    # 2. Recomp & Makros (Defizit/Überschuss & Protein)
     kcal_diff = total_kcal - target_kcal
     if abs(kcal_diff) <= 150:
-        recomp_kcal_msg = f"Perfekter Punktlandungs-Kalorienbereich ({total_kcal}/{target_kcal} kcal) – ideal für saubere Body Recomposition!"
+        kcal_part = f"beim Kalorienziel hast du mit {total_kcal} von {target_kcal} kcal eine Punktlandung für die Recomp hingelegt"
     elif kcal_diff < 0:
-        recomp_kcal_msg = f"Leichtes Defizit ({total_kcal}/{target_kcal} kcal) – gut für den Fettabbau, halte das Protein hoch."
+        kcal_part = f"du hast mit {total_kcal} kcal ein sauberes Defizit für den Fettabbau erreicht"
     else:
-        recomp_kcal_msg = f"Leichter Überschuss ({total_kcal}/{target_kcal} kcal) – Energie für den Muskelaufbau ist da!"
+        kcal_part = f"du warst mit {total_kcal} kcal heute im leichten Überschuss für den Muskelaufbau"
 
     if total_prot >= target_prot:
-        recomp_prot_msg = f"Stark! Proteinziel mit {total_prot}g (Ziel: {target_prot}g) souverän erreicht. Muskelschutz läuft!"
+        prot_part = f"und dein Proteinziel mit starken {total_prot}g komplett geknackt!"
     else:
-        recomp_prot_msg = f"Bisher {total_prot}g Protein (Ziel: {target_prot}g) – da geht noch ein kleiner Protein-Boost!"
+        prot_part = f"wobei du bei bisher {total_prot}g Protein das Ziel von {target_prot}g noch etwas nach oben schrauben darfst."
 
-    # 3. Training & Aktivität Bewertung
-    training_parts = []
-    if w.get("zirkel_min", 0) > 0:
-        training_parts.append(f"Zirkeltraining ({w['zirkel_min']} Min)")
-    if w.get("bike_km", 0.0) > 0:
-        training_parts.append(f"Cardio/Bike ({w['bike_km']} km)")
-    if w.get("sonstiges"):
-        training_parts.append(f"Aktivität: {w['sonstiges']}")
-    
+    # 3. Training & Schritte
+    training_active = (w.get("zirkel_min", 0) > 0) or (w.get("bike_km", 0.0) > 0) or bool(w.get("sonstiges"))
     steps = meta.get("schritte", 0)
-    if steps >= 10000:
-        step_msg = f"🔥 Kranke Schritte-Performance: {steps} Schritte! Absolute Maschinen-Leistung."
-    elif steps >= 7500:
-        step_msg = f"👍 Solide Bewegung: {steps} Schritte im Zielkorridor."
-    else:
-        step_msg = f"👟 {steps} Schritte – da geht heute Abend noch ein kleiner Verdauungsspaziergang!"
-
-    training_summary = ", ".join(training_parts) if training_parts else "Kein formelles Zusatztraining eingetragen"
-
-    # 4. Motivierender Abschluss-String zusammenbauen
-    summary_lines = [
-        f"--- TAGESANALYSE & MOTIVATION ---",
-        f"1. {gicht_text}",
-        f"2. Recomp & Makros: {recomp_kcal_msg} {recomp_prot_msg}",
-        f"3. Training & Schritte: {training_summary}. {step_msg}",
-        f"Gewicht: {meta['gewicht']} kg | KFA: {meta['kfa']}% | Muskeln: {meta['skel_musk']} kg",
-        f"Zusammenfassung Mahlzeiten: {'; '.join(meal_details) if meal_details else 'Keine'}"
-    ]
     
-    return "\n".join(summary_lines)
+    if training_active and steps >= 8000:
+        move_part = f"Dazu hast du mit starkem Training und {steps} Schritten richtig abgeliefert – weiter so, du bist auf dem perfekten Weg!"
+    elif training_active:
+        move_part = f"Das Training hast du durchgezogen, und mit {steps} Schritten war das eine runde Sache."
+    elif steps >= 10000:
+        move_part = f"Auch ohne formelles Zusatztraining hast du dich mit {steps} Schritten extrem gut bewegt – echter Maschinen-Modus!"
+    elif steps >= 7500:
+        move_part = f"Mit solider Bewegung von {steps} Schritten hast du deinen Alltag gut aktiv gehalten."
+    else:
+        move_part = f"Mit {steps} Schritten war es heute etwas ruhiger – aber morgen ist ein neuer Tag, um wieder voll anzugreifen!"
+
+    # Zusammenfügen zu einem motivierenden Fließtext
+    summary = f"Heute war ein Tag, an dem {gicht_part} {kcal_part} {prot_part} {move_part}"
+    return summary
 
 def save_current_day_to_excel():
     """Schreibt den aktuellen Tag fehlerfrei in die Excel-Datei."""
