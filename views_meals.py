@@ -17,7 +17,6 @@ def show_image_previews(files):
             cols[idx % 4].image(Image.open(file), use_container_width=True)
 
 def render_meal_page(tab_name, meal_key, api_key, save_callback):
-    render_back_button(unique_key=f"back_{meal_key}")
     st.subheader(f"Mahlzeit erfassen: {tab_name}")
     
     # Sicherstellen, dass der Key als Liste im Session State existiert
@@ -74,7 +73,6 @@ def render_meal_page(tab_name, meal_key, api_key, save_callback):
             display_gicht_badge(item["gicht"], item.get("notiz", ""))
 
 def render_snacks_page(api_key, save_callback):
-    render_back_button(unique_key="back_snacks")
     st.subheader("🍏 Snacks & Zwischenmahlzeiten")
     imgs_s = st.file_uploader("Foto(s) vom Snack", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
     show_image_previews(imgs_s)
@@ -104,7 +102,6 @@ def render_snacks_page(api_key, save_callback):
             display_gicht_badge(s["gicht"], s.get("notiz", ""))
 
 def render_drinks_page(save_callback):
-    render_back_button(unique_key="back_drinks")
     st.subheader("🥤 Getränke-Zähler")
     d = st.session_state["drinks"]
     
