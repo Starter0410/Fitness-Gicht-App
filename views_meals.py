@@ -1,81 +1,76 @@
 import streamlit as st
+import pandas as pd
+from datetime import date
 
-def render_meal_page(title, meal_key, api_key, save_callback):
-    st.subheader(f"🍳 {title} erfassen")
-    
-    desc = st.text_input(f"Beschreibung für {title}", key=f"desc_{meal_key}")
-    kcal = st.number_input("Kalorien (kcal)", min_value=0, step=10, key=f"kcal_{meal_key}")
-    prot = st.number_input("Protein (g)", min_value=0.0, step=1.0, key=f"prot_{meal_key}")
-    
-    if st.button("➕ Hinzufügen", key=f"btn_{meal_key}"):
-        if desc:
-            st.session_state["meals"][meal_key].append({"desc": desc, "kcal": kcal, "prot": prot})
-            save_callback()
-            st.success(f"{title} hinzugefügt!")
-            st.rerun()
-        else:
-            st.warning("Bitte gib eine Beschreibung ein.")
+def render_meals_page(api_key, save_callback):
+    st.subheader("🍽️ Ernährungs- & Mahlzeiten-Erfassung (mit KI-Analyse)")
+    st.write("Lade Fotos hoch oder tippe die Mahlzeit ein. Die KI berechnet Kalorien, Protein und bewertet den Gicht-Status.")
 
-    st.markdown("---")
-    st.write(f"**Bisherige Einträge für {title}:**")
-    
-    items = st.session_state["meals"].get(meal_key, [])
-    if not items:
-        st.info("Noch keine Einträge.")
-    for idx, item in enumerate(items):
-        col1, col2 = st.columns([4, 1])
-        col1.write(f"- {item['desc']} ({item['kcal']} kcal, {item['prot']}g Protein)")
-        if col2.button("❌", key=f"del_{meal_key}_{idx}"):
-            st.session_state["meals"][meal_key].pop(idx)
-            save_callback()
-            st.rerun()
+    # Beispielhafte Hilfsfunktion für die KI-Analyse
+    def analyze_food_with_ai(description, uploaded_files):
+        # Hier greift deine KI-Logik (z.B. Gemini Vision für Fotos / Text)
+        # Dummy-Werte als Fallback:
+        cal = 500
+        prot = 30
+        notiz = f"KI-Analyse für: {description if description else 'Hochgeladenes Bild'}"
+        gicht = "Gelb"
+        return cal, prot, notiz, gicht
 
-def render_snacks_page(api_key, save_callback):
-    st.subheader("🍏 Snacks & Zwischenmahlzeiten")
-    
-    desc = st.text_input("Snack Beschreibung", key="desc_snacks")
-    kcal = st.number_input("Kalorien (kcal)", min_value=0, step=10, key="kcal_snacks")
-    prot = st.number_input("Protein (g)", min_value=0.0, step=1.0, key="prot_snacks")
-    
-    if st.button("➕ Snack hinzufügen", key="btn_snacks"):
-        if desc:
-            st.session_state["meals"]["snacks"].append({"desc": desc, "kcal": kcal, "prot": prot})
-            save_callback()
-            st.success("Snack hinzugefügt!")
-            st.rerun()
-        else:
-            st.warning("Bitte gib eine Beschreibung ein.")
+    # Tabs für die Mahlzeiten
+    tabs = st.tabs(["🌅 Frühstück", "☀️ Mittagessen", "🌙 Abendessen", "🍎 Snacks"])
 
-    st.markdown("---")
-    st.write("**Bisherige Snacks:**")
-    
-    items = st.session_state["meals"].get("snacks", [])
-    if not items:
-        st.info("Noch keine Snacks erfasst.")
-    for idx, item in enumerate(items):
-        col1, col2 = st.columns([4, 1])
-        col1.write(f"- {item['desc']} ({item['kcal']} kcal, {item['prot']}g Protein)")
-        if col2.button("❌", key=f"del_snacks_{idx}"):
-            st.session_state["meals"]["snacks"].pop(idx)
-            save_callback()
-            st.rerun()
+    meal_types = [("fruehstueck", "Frühstück"), ("mittag", "Mittagessen"), ("abend", "Abendessen"), ("snacks", "Snacks")]
 
-def render_drinks_page(save_callback):
-    st.subheader("🥤 Getränke-Zähler")
-    
-    d = st.session_state["drinks"]
-    
-    d["wasser_soda"] = st.number_input("Wasser / Soda (Liter)", value=float(d["wasser_soda"]), step=0.5)
-    d["kaffee"] = st.number_input("Kaffee (Tassen)", value=int(d["kaffee"]), step=1)
-    d["whey_scoops"] = st.number_input("Whey Protein (Scoops)", value=int(d["whey_scoops"]), step=1)
-    d["redbull"] = st.number_input("Red Bull / Energy (Dosen)", value=int(d["redbull"]), step=1)
-    
-    st.markdown("---")
-    st.write("**Sonstige Getränke (optional)**")
-    d["sonstiges_txt"] = st.text_input("Beschreibung", value=d["sonstiges_txt"])
-    d["sonstiges_kcal"] = st.number_input("Kalorien (kcal)", value=int(d["sonstiges_kcal"]), step=10)
-    d["sonstiges_prot"] = st.number_input("Protein (g)", value=float(d["sonstiges_prot"]), step=1.0)
-    
-    if st.button("💾 Getränke speichern"):
-        save_callback()
-        st.success("Getränkewerte aktualisiert!")
+    for i, (key, title) in enumerate(meal_types):
+        with tabs[i]:
+            st.markdown(f"### {title} erfassen")
+            
+            # 1. Bildupload für KI-Analyse
+            uploaded_images = st.file_uploader(f"📸 Foto(s) für {title} hochladen", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key=f"img_{key}")
+            
+            if uploaded_images:
+                st.image(uploaded_images, width=150, caption=[f"Bild {idx+1}" for idx in range(len(uploaded_images))])
+
+            # 2. Beschreibung / Text-Eingabe
+            desc_input = st.text_input(f"Beschreibung / Text für {title}", key=f"desc_{key}")
+
+            # Button zur KI-Analyse & automatischen Übernahme
+            if st.button(f"✨ {title} per KI analysieren & eintragen", key=f"ai_btn_{key}"):
+                if uploaded_images or desc_input:
+                    with st.spinner("KI analysiert Nährwerte und Gicht-Risiko..."):
+                        cal, prot, notiz, gicht = analyze_food_with_ai(desc_input, uploaded_images)
+                        
+                        # In den Session State eintragen
+                        if key not in st.session_state:
+                            st.session_state[key] = []
+                        
+                        st.session_state[key].append({
+                            "titel": desc_input if desc_input else title,
+                            "kalorien": cal,
+                            "protein": prot,
+                            "notiz": notiz,
+                            "gicht_status": gicht
+                        })
+                        save_callback()
+                        st.success(f"Erfolgreich hinzugefügt! Gicht-Status: **{gicht}**")
+                else:
+                    st.warning("Bitte lade mindestens ein Bild hoch oder gib eine Beschreibung ein.")
+
+            st.markdown("---")
+            st.markdown(f"**Bisherige Einträge für {title}:**")
+            
+            # Einträge anzeigen und löschbar machen
+            if key in st.session_state and st.session_state[key]:
+                for idx, item in enumerate(st.session_state[key]):
+                    cols = st.columns([4, 1])
+                    with cols[0]:
+                        st.markdown(f"- **{item['titel']}** ({item['kalorien']} kcal, {item['protein']}g Protein) | *Gicht: {item.get('gicht_status', 'None')}*")
+                        if item.get('notiz'):
+                            st.caption(f"Notiz: {item['notiz']}")
+                    with cols[1]:
+                        if st.button("❌", key=f"del_{key}_{idx}"):
+                            st.session_state[key].pop(idx)
+                            save_callback()
+                            st.rerun()
+            else:
+                st.info("Noch keine Einträge.")
