@@ -61,17 +61,26 @@ if "workout" not in st.session_state:
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
 def save_current_day_to_excel():
-    """Schreibt den aktuellen Tag in die Excel-Datei."""
+    """Schreibt den aktuellen Tag fehlerfrei in die Excel-Datei."""
     totals_kcal, totals_prot = get_todays_totals()
     meta = st.session_state["daily_meta"]
     
     m = st.session_state["meals"]
-    f_desc = ", ".join([item["desc"] for item in m.get("fruehstueck", [])])
-    m_desc = ", ".join([item["desc"] for item in m.get("mittagessen", [])])
-    a_desc = ", ".join([item["desc"] for item in m.get("abendessen", [])])
-    s_desc = ", ".join([s["desc"] for s in m.get("snacks", [])])
     
-    all_desc = f"Frühstück: {f_desc} | Mittag: {m_desc} | Abend: {a_desc} | Snacks: {s_desc} | Notiz: {meta['notizen']}"
+    # Sauberer zusammenbauen ohne leere Artefakte
+    f_list = [item["desc"] for item in m.get("fruehstueck", []) if item.get("desc")]
+    m_list = [item["desc"] for item in m.get("mittagessen", []) if item.get("desc")]
+    a_list = [item["desc"] for item in m.get("abendessen", []) if item.get("desc")]
+    s_list = [s["desc"] for s in m.get("snacks", []) if s.get("desc")]
+    
+    parts = []
+    if f_list: parts.append(f"Frühstück: {', '.join(f_list)}")
+    if m_list: parts.append(f"Mittag: {', '.join(m_list)}")
+    if a_list: parts.append(f"Abend: {', '.join(a_list)}")
+    if s_list: parts.append(f"Snacks: {', '.join(s_list)}")
+    if meta.get("notizen"): parts.append(f"Notiz: {meta['notizen']}")
+    
+    all_desc = " | ".join(parts) if parts.append else "Keine Einträge"
 
     new_row = {
         "Datum": str(date.today()),
@@ -134,7 +143,7 @@ with st.sidebar:
 
 tab = st.session_state["nav_tab"]
 
-# Einheitlicher Zurück-Button für alle Unterseiten oben links (nur 1 Mal!)
+# Einheitlicher Zurück-Button für alle Unterseiten oben links
 if tab != "🏠 Startseite":
     if st.button("⬅️ Zurück zur Startseite", use_container_width=True, key="global_back_btn"):
         st.session_state["nav_tab"] = "🏠 Startseite"
@@ -142,7 +151,11 @@ if tab != "🏠 Startseite":
     st.markdown("---")
 
 if tab == "🏠 Startseite":
-    st.title("🏋️‍♂️ Gicht & Body-Recomposition Tracker")
+    # Logo / Emoji über der Überschrift platziert + Hipster/Gen-Z Subtitle
+    st.markdown("### 🏋️‍♂️")
+    st.title("Gicht & Body-Recomposition Tracker")
+    st.caption("✨ *vibe check: locked in 🔒* &nbsp;|&nbsp; *the best version of me* &nbsp;|&nbsp; **powered by starter.exe**")
+    
     st.write(f"**Datum:** {date.today().strftime('%d.%m.%Y')}")
     
     total_kcal, total_prot = get_todays_totals()
@@ -151,10 +164,26 @@ if tab == "🏠 Startseite":
     col1.metric("Heutige Kalorien", f"{total_kcal} kcal")
     col2.metric("Heutiges Protein", f"{total_prot} g")
     
+    # Kleine visuelle Fortschrittsbalken (ersatz für Tortendiagramme / Makro-Anzeige)
+    st.markdown("---")
+    st.subheader("⚡ Macro & Target Status")
+    
+    # Beispiel-Zielwerte (kannst du anpassen: z.B. 2500 kcal, 160g Protein)
+    target_kcal = 2500
+    target_prot = 160
+    
+    kcal_progress = min(total_kcal / target_kcal, 1.0)
+    prot_progress = min(total_prot / target_prot, 1.0)
+    
+    st.write(f"Kalorien-Ziel ({total_kcal} / {target_kcal} kcal)")
+    st.progress(kcal_progress)
+    
+    st.write(f"Protein-Ziel ({total_prot} / {target_prot} g)")
+    st.progress(prot_progress)
+    
     st.markdown("---")
     st.subheader("📌 Menü")
     
-    # Waage direkt an oberster Stelle platziert
     if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
         st.session_state["nav_tab"] = "Waage"
         st.rerun()
