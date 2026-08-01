@@ -22,7 +22,6 @@ def render_meal_page(title, key, api_key, save_callback):
     if st.button(f"✨ {title} per KI analysieren & eintragen", key=f"ai_btn_{key}"):
         if uploaded_images or desc_input:
             with st.spinner("KI analysiert Nährwerte und Gicht-Risiko..."):
-                # Nutzung der zentralen Logik-Funktion
                 ai_result = analyze_images_or_text(api_key, pil_imgs, desc_input)
                 
                 cal = ai_result.get("kcal", 0)
@@ -71,14 +70,15 @@ def render_drinks_page(save_callback):
     st.subheader("🥤 Getränke-Zähler")
     d = st.session_state["drinks"]
     
-    d["wasser_soda"] = st.number_input("Wasser / Soda (Liter)", value=float(d["wasser_soda"]), step=0.5)
-    d["kaffee"] = st.number_input("Kaffee (Tassen)", value=int(d["kaffee"]), step=1)
-    d["whey_scoops"] = st.number_input("Whey Protein (Scoops)", value=int(d["whey_scoops"]), step=1)
-    d["redbull"] = st.number_input("Red Bull / Energy (Dosen)", value=int(d["redbull"]), step=1)
+    # Mit festen Keys, damit Streamlit sie bei Session-Änderungen oder Resets korrekt steuert
+    d["wasser_soda"] = st.number_input("Wasser / Soda (Liter)", value=float(d["wasser_soda"]), step=0.5, key="input_wasser_soda")
+    d["kaffee"] = st.number_input("Kaffee (Tassen)", value=int(d["kaffee"]), step=1, key="input_kaffee")
+    d["whey_scoops"] = st.number_input("Whey Protein (Scoops)", value=int(d["whey_scoops"]), step=1, key="input_whey_scoops")
+    d["redbull"] = st.number_input("Red Bull / Energy (Dosen)", value=int(d["redbull"]), step=1, key="input_redbull")
     
-    d["sonstiges_txt"] = st.text_input("Sonstige Getränke (Beschreibung)", value=d["sonstiges_txt"])
-    d["sonstiges_kcal"] = st.number_input("Sonstige Getränke Kalorien (kcal)", value=int(d["sonstiges_kcal"]), step=10)
-    d["sonstiges_prot"] = st.number_input("Sonstige Getränke Protein (g)", value=float(d["sonstiges_prot"]), step=5.0)
+    d["sonstiges_txt"] = st.text_input("Sonstige Getränke (Beschreibung)", value=d["sonstiges_txt"], key="input_sonstiges_txt")
+    d["sonstiges_kcal"] = st.number_input("Sonstige Getränke Kalorien (kcal)", value=int(d["sonstiges_kcal"]), step=10, key="input_sonstiges_kcal")
+    d["sonstiges_prot"] = st.number_input("Sonstige Getränke Protein (g)", value=float(d["sonstiges_prot"]), step=5.0, key="input_sonstiges_prot")
 
     if st.button("💾 Getränke speichern"):
         save_callback()
