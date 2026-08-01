@@ -92,34 +92,34 @@ def render_statistik_page(excel_file):
 
     st.markdown("### 🧬 Körperwerte (Body Recomp)")
     
-    # Hilfsspalten für feste Achsen-Begrenzung im Chart erzwingen
-    chart_df["Min_KG"] = 60.0
-    chart_df["Max_KG"] = 80.0
-    
-    chart_df["Min_KFA"] = 10.0
-    chart_df["Max_KFA"] = 19.0
-    
-    chart_df["Min_Musk"] = 30.0
-    chart_df["Max_Musk"] = 40.0
-
-    # 1. Gewicht (60 - 80)
+    # 1. Gewicht (Fokus-Bereich: 60 - 80 kg)
     if "KG" in chart_df.columns:
         st.write("**Gewicht (KG) – Bereich: 60 - 80 kg**")
-        st.line_chart(chart_df[["KG", "Min_KG", "Max_KG"]])
+        temp_kg = chart_df[["KG"]].copy()
+        temp_kg.loc[temp_kg.index[0], "KG"] = 60.0  # Untere Grenze erzwingen
+        temp_kg.loc[temp_kg.index[-1], "KG"] = 80.0 # Obere Grenze erzwingen
+        st.line_chart(temp_kg)
 
-    # 2. KFA (10 - 19)
+    # 2. KFA (Fokus-Bereich: 10 - 19 %)
     if "KFA" in chart_df.columns:
         st.write("**Körperfettanteil KFA (%) – Bereich: 10 - 19 %**")
-        st.line_chart(chart_df[["KFA", "Min_KFA", "Max_KFA"]])
+        temp_kfa = chart_df[["KFA"]].copy()
+        temp_kfa.loc[temp_kfa.index[0], "KFA"] = 10.0
+        temp_kfa.loc[temp_kfa.index[-1], "KFA"] = 19.0
+        st.line_chart(temp_kfa)
 
-    # 3. Skelettmuskelanteil (30 - 40)
+    # 3. Skelettmuskelanteil (Fokus-Bereich: 30 - 40)
     if "Skel.Musk" in chart_df.columns:
         st.write("**Skelettmuskulatur – Bereich: 30 - 40**")
-        st.line_chart(chart_df[["Skel.Musk", "Min_Musk", "Max_Musk"]])
+        temp_musk = chart_df[["Skel.Musk"]].copy()
+        temp_musk.loc[temp_musk.index[0], "Skel.Musk"] = 30.0
+        temp_musk.loc[temp_musk.index[-1], "Skel.Musk"] = 40.0
+        st.line_chart(temp_musk)
 
     st.markdown("---")
     st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken (inkl. Ziellinien)")
 
+    # Ziellinien nur bei den Balkendiagrammen
     chart_df["Ziel_Schritte"] = 10000
     chart_df["Ziel_KCAL"] = 2150
     chart_df["Ziel_Prot"] = 140
