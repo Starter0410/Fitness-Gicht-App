@@ -5,6 +5,7 @@ from datetime import date
 # Importiere deine Ansichten
 from views_meals import render_meal_page, render_snacks_page, render_drinks_page
 from views_training import render_waage_page, render_training_page, render_statistik_page
+from logic_gemini import analyze_images_or_text
 
 # Excel-Dateiname
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
@@ -60,13 +61,9 @@ if "workout" not in st.session_state:
 # -------------------------------------------------------------------------
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
-def save_current_day_to_excel():
-    """Schreibt den aktuellen Tag fehlerfrei in die Excel-Datei."""
-    totals_kcal, totals_prot = get_todays_totals()
-    meta = st.session_state["daily_meta"]
-    
+def generate_summary_string():
+    """Generiert den zusammenfassenden Text aller Mahlzeiten für die Notiz."""
     m = st.session_state["meals"]
-    
     f_list = [item["desc"] for item in m.get("fruehstueck", []) if item.get("desc")]
     m_list = [item["desc"] for item in m.get("mittagessen", []) if item.get("desc")]
     a_list = [item["desc"] for item in m.get("abendessen", []) if item.get("desc")]
@@ -77,9 +74,19 @@ def save_current_day_to_excel():
     if m_list: parts.append(f"Mittag: {', '.join(m_list)}")
     if a_list: parts.append(f"Abend: {', '.join(a_list)}")
     if s_list: parts.append(f"Snacks: {', '.join(s_list)}")
-    if meta.get("notizen"): parts.append(f"Notiz: {meta['notizen']}")
     
-    all_desc = " | ".join(parts) if parts else "Keine Einträge"
+    return " | ".join(parts) if parts else "Keine Mahlzeiten erfasst"
+
+def save_current_day_to_excel():
+    """Schreibt den aktuellen Tag fehlerfrei in die Excel-Datei."""
+    totals_kcal, totals_prot = get_todays_totals()
+    meta = st.session_state["daily_meta"]
+    
+    summary_text = generate_summary_string()
+    if meta.get("notizen"):
+        all_desc = f"{summary_text} | Notiz: {meta['notizen']}"
+    else:
+        all_desc = summary_text
 
     new_row = {
         "Datum": str(date.today()),
@@ -235,16 +242,47 @@ elif tab == "Statistiken":
     render_statistik_page(EXCEL_FILE)
 
 elif tab == "Abschluss":
-    st.subheader("🔍 Tagesabschluss & Endkontrolle")
+    st.subheader("🔍 Tagesabschluss & Kontrollansicht")
+    
+    total_kcal, total_prot = get_todays_totals()
+    
+    # Visuelle Kontrollbox für erfasste Mahlzeiten & Getränke
+    with st.expander("👀 Übersicht der erfassten Mahlzeiten & Getränke (Kontrolle)", expanded=True):
+        m = st.session_state["meals"]
+        d = st.session_state["drinks"]
+        
+        st.markdown(f"**Gesamtbilanz:** 🔥 {total_kcal} kcal | 🥩 {total_prot} g Protein")
+        st.markdown("---")
+        
+        for cat_label, cat_key in [("🍳 Frühstück", "fruehstueck"), ("🥗 Mittagessen", "mittagessen"), ("🍲 Abendessen", "abendessen"), ("🍏 Snacks", "snacks")]:
+            items = m.get(cat_key, [])
+            if items:
+                st.markdown(f"**{cat_label}:**")
+                for itm in items:
+                    st.markdown(f"- {itm['desc']} ({itm['kcal']} kcal, {itm['prot']}g) *[Gicht: {itm.get('gicht_status', 'Grün')}]*")
+            else:
+                st.markdown(f"**{cat_label}:** *Keine Einträge*")
+        
+        st.markdown(f"**🥤 Getränke:** Wasser/Soda: {d['wasser_soda']}L | Kaffee: {d['kaffee']} Tassen | Whey: {d['whey_scoops']} Scoops | Energy: {d['redbull']} Dosen")
+        if d['sonstiges_txt']:
+            st.markdown(f"*Sonstiges:* {d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal)")
+
+    st.markdown("---")
     
     meta = st.session_state["daily_meta"]
     meta["gewicht"] = st.number_input("Heutiges Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
     meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
     meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
     meta["schritte"] = st.number_input("Heutige Schritte", value=int(meta["schritte"]), step=500)
-    meta["notizen"] = st.text_area("Tagesnotizen / Befinden", value=meta["notizen"])
     
-    total_kcal, total_prot = get_todays_totals()
+    # Button zum Generieren der Tagesnotiz
+    if st.button("✨ Tagesnotiz aus Mahlzeiten generieren"):
+        meta["notizen"] = generate_summary_string()
+        st.success("Tagesnotiz erfolgreich aus den Mahlzeiten generiert!")
+        st.rerun()
+
+    meta["notizen"] = st.text_area("Tagesnotizen / Befinden (wird in Excel gespeichert)", value=meta["notizen"])
+    
     st.info(f"**Bisherige Tagesbilanz:** {total_kcal} kcal | {total_prot} g Protein")
     
     if st.button("🚀 In Excel speichern & Download vorbereiten", type="primary"):
