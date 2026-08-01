@@ -4,7 +4,7 @@ from datetime import date
 
 # Importiere deine Ansichten
 from views_meals import render_meal_page, render_snacks_page, render_drinks_page
-from views_training import render_statistik_page, render_training_page
+from views_training import render_waage_page, render_training_page, render_statistik_page
 
 # Excel-Dateiname
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
@@ -46,6 +46,17 @@ if "daily_meta" not in st.session_state:
         "notizen": ""
     }
 
+if "workout" not in st.session_state:
+    st.session_state["workout"] = {
+        "schritte": 8000,
+        "zirkel_min": 0,
+        "zirkel_details": "",
+        "bike_km": 0.0,
+        "bike_modus": "",
+        "sonstiges": "",
+        "notiz": ""
+    }
+
 # -------------------------------------------------------------------------
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
@@ -64,12 +75,12 @@ def save_current_day_to_excel():
 
     new_row = {
         "Datum": str(date.today()),
-        "Gewicht (kg)": meta["gewicht"],
-        "KFA (%)": meta["kfa"],
-        "Skel. Muskulatur (kg)": meta["skel_musk"],
+        "KG": meta["gewicht"],
+        "KFA": meta["kfa"],
+        "Skel.Musk": meta["skel_musk"],
         "Schritte": meta["schritte"],
         "KCAL": totals_kcal,
-        "Protein (g)": totals_prot,
+        "Prot": totals_prot,
         "Notizen": all_desc
     }
 
@@ -123,6 +134,13 @@ with st.sidebar:
 
 tab = st.session_state["nav_tab"]
 
+# Einheitlicher Zurück-Button für alle Unterseiten oben links
+if tab != "🏠 Startseite":
+    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
+        st.session_state["nav_tab"] = "🏠 Startseite"
+        st.rerun()
+    st.markdown("---")
+
 if tab == "🏠 Startseite":
     st.title("🏋️‍♂️ Gicht & Body-Recomposition Tracker")
     st.write(f"**Datum:** {date.today().strftime('%d.%m.%Y')}")
@@ -154,6 +172,9 @@ if tab == "🏠 Startseite":
     if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
         st.session_state["nav_tab"] = "Waage"
         st.rerun()
+    if st.button("🏋️‍♂️ Training & Aktivitäten", use_container_width=True):
+        st.session_state["nav_tab"] = "Training"
+        st.rerun()
     if st.button("📊 Statistiken & Tabellen", use_container_width=True):
         st.session_state["nav_tab"] = "Statistiken"
         st.rerun()
@@ -177,16 +198,15 @@ elif tab == "Getränke":
     render_drinks_page(save_current_day_to_excel)
 
 elif tab == "Waage":
-    render_training_page(st.session_state["api_key"])
+    render_waage_page(st.session_state["api_key"], save_current_day_to_excel)
+
+elif tab == "Training":
+    render_training_page(st.session_state["api_key"], save_current_day_to_excel)
 
 elif tab == "Statistiken":
     render_statistik_page(EXCEL_FILE)
 
 elif tab == "Abschluss":
-    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
-        st.session_state["nav_tab"] = "🏠 Startseite"
-        st.rerun()
-    st.markdown("---")
     st.subheader("🔍 Tagesabschluss & Endkontrolle")
     
     meta = st.session_state["daily_meta"]
