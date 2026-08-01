@@ -61,20 +61,46 @@ if "workout" not in st.session_state:
 # -------------------------------------------------------------------------
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
+def get_worst_gicht_status(items):
+    """
+    Ermittelt den schlechtesten Gicht-Status aus einer Liste von Items.
+    Priorität: Rot (3) > Gelb (2) > Grün (1)
+    """
+    if not items:
+        return "Grün"
+    
+    rank = {"grün": 1, "gelb": 2, "rot": 3}
+    worst_score = 1
+    worst_word = "Grün"
+    
+    for item in items:
+        status = str(item.get('gicht_status', 'Grün')).strip().lower()
+        current_score = rank.get(status, 1)
+        
+        if current_score > worst_score:
+            worst_score = current_score
+            worst_word = status.capitalize()
+            
+    return worst_word
+
 def generate_summary_string():
-    """Generiert den zusammenfassenden Text aller Mahlzeiten für die Notiz."""
+    """Generiert den zusammenfassenden Text aller Mahlzeiten inkl. Notizen & Gicht-Status für den Export."""
     m = st.session_state["meals"]
-    f_list = [item["desc"] for item in m.get("fruehstueck", []) if item.get("desc")]
-    m_list = [item["desc"] for item in m.get("mittagessen", []) if item.get("desc")]
-    a_list = [item["desc"] for item in m.get("abendessen", []) if item.get("desc")]
-    s_list = [s["desc"] for s in m.get("snacks", []) if s.get("desc")]
-    
     parts = []
-    if f_list: parts.append(f"Frühstück: {', '.join(f_list)}")
-    if m_list: parts.append(f"Mittag: {', '.join(m_list)}")
-    if a_list: parts.append(f"Abend: {', '.join(a_list)}")
-    if s_list: parts.append(f"Snacks: {', '.join(s_list)}")
     
+    for cat_label, cat_key in [("Frühstück", "fruehstueck"), ("Mittag", "mittagessen"), ("Abend", "abendessen"), ("Snacks", "snacks")]:
+        items = m.get(cat_key, [])
+        if items:
+            worst_status = get_worst_gicht_status(items)
+            item_strs = []
+            for itm in items:
+                status = itm.get('gicht_status', 'Grün')
+                txt = f"{itm['desc']} ({itm['kcal']} kcal, {itm['prot']}g, Gicht: {status})"
+                if itm.get('notiz'):
+                    txt += f" [Notiz: {itm['notiz']}]"
+                item_strs.append(txt)
+            parts.append(f"{cat_label} [Gesamt-Gicht: {worst_status}]: {'; '.join(item_strs)}")
+            
     return " | ".join(parts) if parts else "Keine Mahlzeiten erfasst"
 
 def save_current_day_to_excel():
@@ -84,7 +110,7 @@ def save_current_day_to_excel():
     
     summary_text = generate_summary_string()
     if meta.get("notizen"):
-        all_desc = f"{summary_text} | Notiz: {meta['notizen']}"
+        all_desc = f"{summary_text} | Tagesnotiz: {meta['notizen']}"
     else:
         all_desc = summary_text
 
@@ -246,8 +272,8 @@ elif tab == "Abschluss":
     
     total_kcal, total_prot = get_todays_totals()
     
-    # Visuelle Kontrollbox für erfasste Mahlzeiten & Getränke
-    with st.expander("👀 Übersicht der erfassten Mahlzeiten & Getränke (Kontrolle)", expanded=True):
+    # Erweiterte Kontrollbox mit Notizen und Gicht-Status pro Mahlzeit inklusive Worst-Case-Ermittlung
+    with st.expander("👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status (Kontrolle)", expanded=True):
         m = st.session_state["meals"]
         d = st.session_state["drinks"]
         
@@ -257,15 +283,20 @@ elif tab == "Abschluss":
         for cat_label, cat_key in [("🍳 Frühstück", "fruehstueck"), ("🥗 Mittagessen", "mittagessen"), ("🍲 Abendessen", "abendessen"), ("🍏 Snacks", "snacks")]:
             items = m.get(cat_key, [])
             if items:
-                st.markdown(f"**{cat_label}:**")
+                worst = get_worst_gicht_status(items)
+                st.markdown(f"**{cat_label}** *(Kategorie-Gichtstatus: **{worst}**)*:")
                 for itm in items:
-                    st.markdown(f"- {itm['desc']} ({itm['kcal']} kcal, {itm['prot']}g) *[Gicht: {itm.get('gicht_status', 'Grün')}]*")
+                    gicht = itm.get('gicht_status', 'Grün')
+                    st.markdown(f"- **{itm['desc']}** ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***")
+                    if itm.get('notiz'):
+                        st.caption(f"  📝 Notiz: {itm['notiz']}")
             else:
                 st.markdown(f"**{cat_label}:** *Keine Einträge*")
         
+        st.markdown("---")
         st.markdown(f"**🥤 Getränke:** Wasser/Soda: {d['wasser_soda']}L | Kaffee: {d['kaffee']} Tassen | Whey: {d['whey_scoops']} Scoops | Energy: {d['redbull']} Dosen")
         if d['sonstiges_txt']:
-            st.markdown(f"*Sonstiges:* {d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal)")
+            st.markdown(f"*Sonstiges:* {d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal, {d['sonstiges_prot']}g Protein)")
 
     st.markdown("---")
     
@@ -275,7 +306,6 @@ elif tab == "Abschluss":
     meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
     meta["schritte"] = st.number_input("Heutige Schritte", value=int(meta["schritte"]), step=500)
     
-    # Button zum Generieren der Tagesnotiz
     if st.button("✨ Tagesnotiz aus Mahlzeiten generieren"):
         meta["notizen"] = generate_summary_string()
         st.success("Tagesnotiz erfolgreich aus den Mahlzeiten generiert!")
