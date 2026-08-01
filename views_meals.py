@@ -1,6 +1,6 @@
 import streamlit as st
 from PIL import Image
-from logic import analyze_images_or_text
+from logic_gemini import analyze_images_or_text
 
 def render_meal_page(title, key, api_key, save_callback):
     st.markdown(f"### 🍽️ {title} erfassen")
