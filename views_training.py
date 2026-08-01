@@ -1,14 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from PIL import Image
 from logic_gemini import analyze_waage, analyze_workout
-
-def render_back_button():
-    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
-        st.session_state["nav_tab"] = "🏠 Startseite"
-        st.rerun()
-    st.markdown("---")
 
 def show_image_previews(files):
     if files:
@@ -17,21 +10,17 @@ def show_image_previews(files):
             cols[idx % 4].image(Image.open(file), use_container_width=True)
 
 def render_waage_page(api_key, save_callback):
-    render_back_button()
     st.subheader("⚖️ Waagen-Messung")
     
     imgs_w = st.file_uploader("Foto(s) der Waage / App wählen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="w_img")
     show_image_previews(imgs_w)
     
-    # Stabiler Button mit direktem Feedback
     if st.button("🤖 Waage analysieren", type="primary", key="btn_analyze_waage"):
         if imgs_w:
             with st.spinner("Analysiere Waagen-Bild mit Gemini..."):
                 try:
                     pil_imgs = [Image.open(f) for f in imgs_w]
                     res = analyze_waage(api_key, pil_imgs)
-                    
-                    st.write("DEBUG ERGEBNIS:", res) # Zeigt dir sofort an, was zurückkommt
                     
                     st.session_state["waage_data"] = res
                     
@@ -70,7 +59,6 @@ def render_waage_page(api_key, save_callback):
             st.success("Waagendaten im Zwischenspeicher gesichert!")
 
 def render_training_page(api_key, save_callback):
-    render_back_button()
     st.subheader("🏋️‍♂️ Training & Aktivitäten erfassen")
     imgs_tr = st.file_uploader("Screenshots hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="tr_imgs")
     show_image_previews(imgs_tr)
@@ -107,7 +95,6 @@ def render_training_page(api_key, save_callback):
     save_callback()
 
 def render_statistik_page(excel_file):
-    render_back_button()
     st.subheader("📈 Historische Auswertungen, Wochen- & Monatsbilanz")
     
     if os.path.exists(excel_file):
