@@ -31,15 +31,8 @@ st.set_page_config(
     layout="wide"
 )
 
-# Automatisches Scrollen nach oben bei jedem Klick
-components.html(
-    """
-    <script>
-        window.parent.document.querySelector('.main').scrollTop = 0;
-    </script>
-    """,
-    height=0,
-)
+# Automatisches Scrollen nach oben bei jedem Klick verhindern (optional, hier deaktiviert, damit es flüssiger bleibt)
+# components.html("""<script>window.parent.document.querySelector('.main').scrollTop = 0;</script>""", height=0)
 
 # Session State für Navigation initialisieren
 if "nav_tab" not in st.session_state:
@@ -155,7 +148,7 @@ def render_gauge_svg(current, target, title, unit, color="#ff4b4b"):
     st.markdown(svg_code, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION (Mit Callback gegen das Zurspringen)
 # ---------------------------------------------------------
 tabs = [
     "🏠 Startseite", 
@@ -170,18 +163,24 @@ tabs = [
     "📈 Statistik & Bilanz"
 ]
 
+def change_tab():
+    st.session_state["nav_tab"] = st.session_state["sidebar_radio"]
+
 with st.sidebar:
     st.title("🏋️‍♂️ Fitness & Gicht")
     st.markdown("---")
-    selected_tab = st.radio("Navigation", tabs, index=tabs.index(st.session_state["nav_tab"]) if st.session_state["nav_tab"] in tabs else 0, label_visibility="collapsed")
-    st.session_state["nav_tab"] = selected_tab
+    # Wir binden das Radio-Widget über ein key an und nutzen ein Callback
+    current_index = tabs.index(st.session_state["nav_tab"]) if st.session_state["nav_tab"] in tabs else 0
+    selected_tab = st.radio("Navigation", tabs, index=current_index, key="sidebar_radio", on_change=change_tab, label_visibility="collapsed")
     st.markdown("---")
     st.caption("Body Recomp & Purinarm-Tracking")
 
 # ---------------------------------------------------------
 # HAUPTSEITEN ROUTING
 # ---------------------------------------------------------
-if st.session_state["nav_tab"] == "🏠 Startseite":
+current_page = st.session_state["nav_tab"]
+
+if current_page == "🏠 Startseite":
     st.subheader("🏠 Tages-Dashboard")
     st.write("Willkommen zurück, Matthias! Hier ist dein moderner Überblick über den heutigen Tag.")
     
@@ -234,28 +233,28 @@ if st.session_state["nav_tab"] == "🏠 Startseite":
         st.session_state["nav_tab"] = "📈 Statistik & Bilanz"
         st.rerun()
 
-elif st.session_state["nav_tab"] == "⚖️ Waage":
+elif current_page == "⚖️ Waage":
     render_waage_page(GEMINI_API_KEY, save_daily_backup)
 
-elif st.session_state["nav_tab"] == "🍳 Frühstück":
+elif current_page == "🍳 Frühstück":
     render_meal_page("Frühstück", "fruehstueck", GEMINI_API_KEY, save_daily_backup)
 
-elif st.session_state["nav_tab"] == "🍲 Mittag":
+elif current_page == "🍲 Mittag":
     render_meal_page("Mittagessen", "mittagessen", GEMINI_API_KEY, save_daily_backup)
 
-elif st.session_state["nav_tab"] == "🌙 Abend":
+elif current_page == "🌙 Abend":
     render_meal_page("Abendessen", "abendessen", GEMINI_API_KEY, save_daily_backup)
 
-elif st.session_state["nav_tab"] == "🍏 Snacks":
+elif current_page == "🍏 Snacks":
     render_snacks_page(GEMINI_API_KEY, save_daily_backup)
 
-elif st.session_state["nav_tab"] == "🥤 Getränke":
+elif current_page == "🥤 Getränke":
     render_drinks_page(save_daily_backup)
 
-elif st.session_state["nav_tab"] == "🏋️‍♂️ Training":
+elif current_page == "🏋️‍♂️ Training":
     render_training_page(GEMINI_API_KEY, save_daily_backup)
 
-elif st.session_state["nav_tab"] == "✅ Abschluss":
+elif current_page == "✅ Abschluss":
     from views_meals import render_back_button
     render_back_button()
     st.subheader("🔍 Tagesabschluss & Endkontrolle")
@@ -336,5 +335,5 @@ elif st.session_state["nav_tab"] == "✅ Abschluss":
                 type="primary"
             )
 
-elif st.session_state["nav_tab"] == "📈 Statistik & Bilanz":
+elif current_page == "📈 Statistik & Bilanz":
     render_statistik_page(EXCEL_FILE)
