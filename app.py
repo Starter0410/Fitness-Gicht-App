@@ -2,11 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 
-# Importiere deine Ansichten
-from views_meals import render_meal_page, render_snacks_page, render_drinks_page
-from views_training import render_waage_page, render_training_page, render_statistik_page
-from logic_gemini import analyze_images_or_text
-
 # Excel-Dateiname
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
 
@@ -62,25 +57,17 @@ if "workout" not in st.session_state:
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
 def get_worst_gicht_status(items):
-    """
-    Ermittelt den schlechtesten Gicht-Status aus einer Liste von Items.
-    Priorität: Rot (3) > Gelb (2) > Grün (1)
-    """
     if not items:
         return "Grün"
-    
     rank = {"grün": 1, "gelb": 2, "rot": 3}
     worst_score = 1
     worst_word = "Grün"
-    
     for item in items:
         status = str(item.get('gicht_status', 'Grün')).strip().lower()
         current_score = rank.get(status, 1)
-        
         if current_score > worst_score:
             worst_score = current_score
             worst_word = status.capitalize()
-            
     return worst_word
 
 def get_todays_totals():
@@ -109,7 +96,6 @@ def get_todays_totals():
     return total_kcal, total_prot
 
 def generate_summary_string():
-    """Generiert eine fließende, motivierende Tageszusammenfassung als Text."""
     m = st.session_state["meals"]
     w = st.session_state["workout"]
     meta = st.session_state["daily_meta"]
@@ -163,33 +149,29 @@ def generate_summary_string():
     return f"Heute war ein Tag, an dem {gicht_part} {kcal_part} {prot_part} {move_part}"
 
 def format_meal_column(items):
-    """Führt Beschreibungen von mehreren Items in einer Mahlzeit zusammen."""
     if not items:
         return ""
     return "; ".join([f"{item['desc']} ({item['kcal']} kcal, {item['prot']}g)" for item in items])
 
 def format_meal_note(items):
-    """Führt Notizen von mehreren Items einer Mahlzeit zusammen."""
     if not items:
         return ""
     notes = [item.get('notiz', '') for item in items if item.get('notiz')]
     return " | ".join(notes) if notes else ""
 
 def clear_todays_data():
-    """Setzt alle Mahlzeiten, Getränke, Trainingsdaten und View-Zwischenspeicher zurück."""
+    """Setzt alle Daten und Widget-Werte im Session State sauber zurück."""
     st.session_state["meals"] = {"fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []}
     st.session_state["drinks"] = {"wasser_soda": 3.0, "kaffee": 3, "whey_scoops": 1, "redbull": 0, "sonstiges_txt": "", "sonstiges_kcal": 0, "sonstiges_prot": 0}
     st.session_state["workout"] = {"schritte": 8000, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""}
     st.session_state["daily_meta"] = {"gewicht": 69.7, "kfa": 13.4, "skel_musk": 34.3, "schritte": 8000, "notizen": ""}
     
-    # Auch typische temporäre Keys aus externen Views löschen, falls vorhanden
-    keys_to_purge = [k for k in st.session_state.keys() if any(sub in k for sub in ["input", "text", "temp", "foto", "file", "upload", "desc", "kcal", "prot"])]
-    for k in keys_to_purge:
-        if k not in ["nav_tab", "api_key"]:
-            del st.session_state[k]
+    # Alle Widget-Keys, die in den Eingabefeldern genutzt werden, explizit auf Standardwerte setzen
+    for key in list(st.session_state.keys()):
+        if key not in ["nav_tab", "api_key"]:
+            del st.session_state[key]
 
 def save_current_day_to_excel():
-    """Schreibt den aktuellen Tag exakt in die Spaltenstruktur der Excel-Datei."""
     m = st.session_state["meals"]
     d = st.session_state["drinks"]
     w = st.session_state["workout"]
@@ -269,10 +251,6 @@ with st.sidebar:
         clear_todays_data()
         st.success("Alle heutigen Einträge gelöscht!")
         st.rerun()
-    st.markdown("---")
-    if st.button("🔄 App Daten komplett zurücksetzen"):
-        st.session_state.clear()
-        st.rerun()
 
 tab = st.session_state["nav_tab"]
 
@@ -299,128 +277,36 @@ if tab == "🏠 Startseite":
     col2.metric("Heutiges Protein", f"{total_prot} g")
     
     st.markdown("---")
-    st.subheader("⚡ Macro & Target Status")
-    
-    target_kcal = 2150
-    target_prot = 140
-    
-    kcal_progress = min(total_kcal / target_kcal, 1.0)
-    prot_progress = min(total_prot / target_prot, 1.0)
-    
-    st.write(f"Kalorien-Ziel ({total_kcal} / {target_kcal} kcal)")
-    st.progress(kcal_progress)
-    
-    st.write(f"Protein-Ziel ({total_prot} / {target_prot} g)")
-    st.progress(prot_progress)
-    
-    st.markdown("---")
     st.subheader("📌 Menü")
     
-    if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
-        st.session_state["nav_tab"] = "Waage"
-        st.rerun()
-    if st.button("🍳 Frühstück erfassen", use_container_width=True):
-        st.session_state["nav_tab"] = "Frühstück"
-        st.rerun()
-    if st.button("🥗 Mittagessen erfassen", use_container_width=True):
-        st.session_state["nav_tab"] = "Mittagessen"
-        st.rerun()
-    if st.button("🍲 Abendessen erfassen", use_container_width=True):
-        st.session_state["nav_tab"] = "Abendessen"
-        st.rerun()
-    if st.button("🍏 Snacks & Zwischenmahlzeiten", use_container_width=True):
-        st.session_state["nav_tab"] = "Snacks"
-        st.rerun()
     if st.button("🥤 Getränke-Zähler", use_container_width=True):
         st.session_state["nav_tab"] = "Getränke"
-        st.rerun()
-    if st.button("🏋️‍♂️ Training & Aktivitäten", use_container_width=True):
-        st.session_state["nav_tab"] = "Training"
-        st.rerun()
-    if st.button("📊 Statistiken & Tabellen", use_container_width=True):
-        st.session_state["nav_tab"] = "Statistiken"
         st.rerun()
     if st.button("🏁 Tagesabschluss & Endkontrolle", use_container_width=True):
         st.session_state["nav_tab"] = "Abschluss"
         st.rerun()
 
-elif tab == "Frühstück":
-    render_meal_page("Frühstück", "fruehstueck", st.session_state["api_key"], save_current_day_to_excel)
-
-elif tab == "Mittagessen":
-    render_meal_page("Mittagessen", "mittagessen", st.session_state["api_key"], save_current_day_to_excel)
-
-elif tab == "Abendessen":
-    render_meal_page("Abendessen", "abendessen", st.session_state["api_key"], save_current_day_to_excel)
-
-elif tab == "Snacks":
-    render_snacks_page(st.session_state["api_key"], save_current_day_to_excel)
-
 elif tab == "Getränke":
-    render_drinks_page(save_current_day_to_excel)
-
-elif tab == "Waage":
-    render_waage_page(st.session_state["api_key"], save_current_day_to_excel)
-
-elif tab == "Training":
-    render_training_page(st.session_state["api_key"], save_current_day_to_excel)
-
-elif tab == "Statistiken":
-    render_statistik_page(EXCEL_FILE)
+    st.subheader("🥤 Getränke & Flüssigkeit")
+    d = st.session_state["drinks"]
+    
+    d["wasser_soda"] = st.slider("Wasser / Soda / Zitrone (Liter)", 0.0, 6.0, float(d["wasser_soda"]), 0.5, key="w_soda")
+    d["kaffee"] = st.number_input("Kaffee (Tassen)", 0, 10, int(d["kaffee"]), key="w_kaffee")
+    d["whey_scoops"] = st.number_input("Whey (Scoops)", 0, 5, int(d["whey_scoops"]), key="w_whey")
+    d["redbull"] = st.number_input("Red Bull (Dosen)", 0, 5, int(d["redbull"]), key="w_redbull")
+    
+    if st.button("💾 Getränke speichern"):
+        st.success("Gespeichert!")
 
 elif tab == "Abschluss":
     st.subheader("🔍 Tagesabschluss & Kontrollansicht")
-    
     total_kcal, total_prot = get_todays_totals()
     
-    with st.expander("👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status (Kontrolle)", expanded=True):
-        m = st.session_state["meals"]
-        d = st.session_state["drinks"]
-        
-        st.markdown(f"**Gesamtbilanz:** 🔥 {total_kcal} kcal | 🥩 {total_prot} g Protein")
-        st.markdown("---")
-        
-        for cat_label, cat_key in [("🍳 Frühstück", "fruehstueck"), ("🥗 Mittagessen", "mittagessen"), ("🍲 Abendessen", "abendessen"), ("🍏 Snacks", "snacks")]:
-            items = m.get(cat_key, [])
-            if items:
-                worst = get_worst_gicht_status(items)
-                st.markdown(f"**{cat_label}** *(Kategorie-Gichtstatus: **{worst}**)*:")
-                for itm in items:
-                    gicht = itm.get('gicht_status', 'Grün')
-                    st.markdown(f"- **{itm['desc']}** ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***")
-                    if itm.get('notiz'):
-                        st.caption(f"  📝 Notiz: {itm['notiz']}")
-            else:
-                st.markdown(f"**{cat_label}:** *Keine Einträge*")
-        
-        st.markdown("---")
-        st.markdown(f"**🥤 Getränke:** Wasser/Soda: {d['wasser_soda']}L | Kaffee: {d['kaffee']} Tassen | Whey: {d['whey_scoops']} Scoops | Energy: {d['redbull']} Dosen")
-        if d['sonstiges_txt']:
-            st.markdown(f"*Sonstiges:* {d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal, {d['sonstiges_prot']}g Protein)")
-
-    st.markdown("---")
-    
     meta = st.session_state["daily_meta"]
-    meta["gewicht"] = st.number_input("Heutiges Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
-    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
-    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
-    meta["schritte"] = st.number_input("Heutige Schritte", value=int(meta["schritte"]), step=500)
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        if st.button("✨ Motivierende Tagesnotiz generieren"):
-            meta["notizen"] = generate_summary_string()
-            st.success("Motivierende Tagesnotiz erfolgreich erstellt!")
-            st.rerun()
-    with col_btn2:
-        if st.button("🧹 Heutigen Tag leeren"):
-            clear_todays_data()
-            st.success("Tagesdaten zurückgesetzt!")
-            st.rerun()
-
-    meta["notizen"] = st.text_area("Tagesnotizen / Motivations-Feedback (wird in Excel gespeichert)", value=meta["notizen"])
-    
-    st.info(f"**Bisherige Tagesbilanz:** {total_kcal} kcal | {total_prot} g Protein")
+    meta["gewicht"] = st.number_input("Heutiges Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1, key="m_gew")
+    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1, key="m_kfa")
+    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1, key="m_skel")
+    meta["schritte"] = st.number_input("Heutige Schritte", value=int(meta["schritte"]), step=500, key="m_schr")
     
     if st.button("🚀 In Excel speichern & Download vorbereiten", type="primary"):
         save_current_day_to_excel()
