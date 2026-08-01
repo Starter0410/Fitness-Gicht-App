@@ -1,15 +1,54 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
+import google.generativeai as genai
+from PIL import Image
 
-# Allgemeine Hilfsfunktion für die KI-Analyse (kann an deinen echten API-Key angebunden werden)
-def analyze_food_with_ai(description, uploaded_files):
-    # Dummy-Auswertung als Fallback
-    cal = 500
-    prot = 30
-    notiz = f"KI-Analyse für: {description if description else 'Hochgeladenes Bild'}"
-    gicht = "Gelb"
-    return cal, prot, notiz, gicht
+def analyze_food_with_ai(description, uploaded_files, api_key):
+    """Echte KI-Analyse für Mahlzeiten (Bilder + Text) inklusive Gicht-Bewertung."""
+    if not api_key:
+        return 0, 0.0, "Kein API-Key hinterlegt.", "None"
+    
+    genai.configure(api_key=api_key)
+    # Verwende ein geeignetes Gemini-Modell für Multimodalität (Text + Bild)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    prompt = f"""
+    Analysiere die folgende Mahlzeit (Beschreibung: '{description}'). 
+    Gib mir das Ergebnis exakt in folgendem Format zurück, ohne zusätzlichen Text drumherum:
+    KALORIEN: [Zahl in kcal]
+    PROTEIN: [Zahl in Gramm]
+    NOTIZ: [Kurze Beschreibung/Analyse der Inhaltsstoffe]
+    GICHT: [Grün, Gelb oder Rot - je nach Purin-Gehalt/Gicht-Verträglichkeit]
+    """
+    
+    content_parts = [prompt]
+    if uploaded_files:
+        for f in uploaded_files:
+            img = Image.open(f)
+            content_parts.append(img)
+            
+    try:
+        response = model.generate_content(content_parts)
+        text = response.text
+        
+        # Werte aus dem KI-Antworttext parsen
+        cal, prot, notiz, gicht = 0, 0.0, "KI-Analyse erfolgreich", "Gelb"
+        for line in text.split("\n"):
+            if "KALORIEN:" in line:
+                cal = int(''.join(filter(str.isdigit, line)))
+            elif "PROTEIN:" in line:
+                prot = float(''.join(filter(lambda c: c.isdigit() or c=='.', line)))
+            elif "NOTIZ:" in line:
+                notiz = line.replace("NOTIZ:", "").strip()
+            elif "GICHT:" in line:
+                gicht_val = line.replace("GICHT:", "").strip().capitalize()
+                if gicht_val in ["Grün", "Gelb", "Rot"]:
+                    gicht = gicht_val
+                    
+        return cal, prot, notiz, gicht
+    except Exception as e:
+        return 0, 0.0, f"Fehler bei KI-Analyse: {str(e)}", "None"
 
 def render_meal_page(title, key, api_key, save_callback):
     st.markdown(f"### 🍽️ {title} erfassen")
@@ -25,7 +64,7 @@ def render_meal_page(title, key, api_key, save_callback):
     if st.button(f"✨ {title} per KI analysieren & eintragen", key=f"ai_btn_{key}"):
         if uploaded_images or desc_input:
             with st.spinner("KI analysiert Nährwerte und Gicht-Risiko..."):
-                cal, prot, notiz, gicht = analyze_food_with_ai(desc_input, uploaded_images)
+                cal, prot, notiz, gicht = analyze_food_with_ai(desc_input, uploaded_images, api_key)
                 
                 if key not in st.session_state:
                     st.session_state[key] = []
