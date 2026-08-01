@@ -176,11 +176,17 @@ def format_meal_note(items):
     return " | ".join(notes) if notes else ""
 
 def clear_todays_data():
-    """Setzt alle Mahlzeiten, Getränke und Trainingsdaten des aktuellen Tages zurück."""
+    """Setzt alle Mahlzeiten, Getränke, Trainingsdaten und View-Zwischenspeicher zurück."""
     st.session_state["meals"] = {"fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []}
     st.session_state["drinks"] = {"wasser_soda": 3.0, "kaffee": 3, "whey_scoops": 1, "redbull": 0, "sonstiges_txt": "", "sonstiges_kcal": 0, "sonstiges_prot": 0}
     st.session_state["workout"] = {"schritte": 8000, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""}
-    st.session_state["daily_meta"]["notizen"] = ""
+    st.session_state["daily_meta"] = {"gewicht": 69.7, "kfa": 13.4, "skel_musk": 34.3, "schritte": 8000, "notizen": ""}
+    
+    # Auch typische temporäre Keys aus externen Views löschen, falls vorhanden
+    keys_to_purge = [k for k in st.session_state.keys() if any(sub in k for sub in ["input", "text", "temp", "foto", "file", "upload", "desc", "kcal", "prot"])]
+    for k in keys_to_purge:
+        if k not in ["nav_tab", "api_key"]:
+            del st.session_state[k]
 
 def save_current_day_to_excel():
     """Schreibt den aktuellen Tag exakt in die Spaltenstruktur der Excel-Datei."""
@@ -191,13 +197,11 @@ def save_current_day_to_excel():
     
     totals_kcal, totals_prot = get_todays_totals()
     target_kcal = 2150
-    defizit_ueberschuss = totals_kcal - target_kcal  # Positiv = Überschuss, Negativ = Defizit
+    defizit_ueberschuss = totals_kcal - target_kcal
     
-    # Automatische Tageszusammenfassung generieren falls leer
     if not meta.get("notizen"):
         meta["notizen"] = generate_summary_string()
 
-    # Gesamter Gicht-Status des Tages ermitteln
     all_cat_items = m.get("fruehstueck", []) + m.get("mittagessen", []) + m.get("abendessen", []) + m.get("snacks", [])
     overall_gicht = get_worst_gicht_status(all_cat_items)
 
@@ -210,41 +214,34 @@ def save_current_day_to_excel():
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
         
-        # Frühstück
         "Frühstück": format_meal_column(m.get("fruehstueck", [])),
         "Frühstück-Ampel": get_worst_gicht_status(m.get("fruehstueck", [])),
         "Frühstück-Notiz": format_meal_note(m.get("fruehstueck", [])),
         
-        # Mittagessen
         "Mittagessen": format_meal_column(m.get("mittagessen", [])),
         "Mittagessen-Ampel": get_worst_gicht_status(m.get("mittagessen", [])),
         "Mittagessen-Notiz": format_meal_note(m.get("mittagessen", [])),
         
-        # Abendessen
         "Abendessen": format_meal_column(m.get("abendessen", [])),
         "Abendessen-Ampel": get_worst_gicht_status(m.get("abendessen", [])),
         "Abendessen-Notiz": format_meal_note(m.get("abendessen", [])),
         
-        # Snacks
         "Snacks": format_meal_column(m.get("snacks", [])),
         "Snack-Ampel": get_worst_gicht_status(m.get("snacks", [])),
         "Snacks-Notiz": format_meal_note(m.get("snacks", [])),
         
-        # Getränke
         "Wasser/Soda/Zitrone": d["wasser_soda"],
         "Red-": d["redbull"],
         "Kaffe": d["kaffee"],
         "Whey": d["whey_scoops"],
         "Getränke-Sonstige": d["sonstiges_txt"],
         
-        # Training & Aktivität
         "Schritte": meta["schritte"],
         "Training": w.get("zirkel_min", 0),
         "Fahrrad (km)": w.get("bike_km", 0.0),
         "Training-Sonstiges": w.get("sonstiges", ""),
         "Notiz11 Training": w.get("notiz", ""),
         
-        # Zusammenfassungen & Gicht
         "Notiz12 Tageszusammenfassung": meta["notizen"],
         "Gicht Status": overall_gicht
     }
