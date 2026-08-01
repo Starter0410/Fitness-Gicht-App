@@ -178,9 +178,9 @@ def format_meal_note(items):
 def clear_todays_data():
     """Setzt alle Mahlzeiten, Getränke, Trainingsdaten und View-Zwischenspeicher zurück."""
     st.session_state["meals"] = {"fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []}
-    st.session_state["drinks"] = {"wasser_soda": 3.0, "kaffee": 3, "whey_scoops": 1, "redbull": 0, "sonstiges_txt": "", "sonstiges_kcal": 0, "sonstiges_prot": 0}
-    st.session_state["workout"] = {"schritte": 8000, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""}
-    st.session_state["daily_meta"] = {"gewicht": 69.7, "kfa": 13.4, "skel_musk": 34.3, "schritte": 8000, "notizen": ""}
+    st.session_state["drinks"] = {"wasser_soda": 0, "kaffee": 0, "whey_scoops": 0, "redbull": 0, "sonstiges_txt": "", "sonstiges_kcal": 0, "sonstiges_prot": 0}
+    st.session_state["workout"] = {"schritte": 0, "zirkel_min": 0, "zirkel_details": "", "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""}
+    st.session_state["daily_meta"] = {"gewicht": 0, "kfa": 0, "skel_musk": 0, "schritte": 0, "notizen": ""}
     
     # Auch typische temporäre Keys aus externen Views löschen, falls vorhanden
     keys_to_purge = [k for k in st.session_state.keys() if any(sub in k for sub in ["input", "text", "temp", "foto", "file", "upload", "desc", "kcal", "prot"])]
