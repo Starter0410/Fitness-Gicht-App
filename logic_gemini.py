@@ -11,8 +11,9 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
         if pil_imgs:
             contents.extend(pil_imgs)
         
+        # Nutzen des aktuellen Modells gemäß Google AI Studio
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-3.1-flash',
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json"
@@ -21,9 +22,8 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
         return json.loads(response.text)
         
     except Exception as e:
-        # Das wird direkt in dein schwarzes Terminal/Konsole gedruckt und bleibt dort stehen!
         print("\n" + "="*50)
-        print("🚨 EXakter GEminI-FEHlEr IM HINTERGRUND:")
+        print("🚨 EXAKTER GEMINI-FEHLER IM HINTERGRUND:")
         traceback.print_exc()
         print("="*50 + "\n")
         
