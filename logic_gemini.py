@@ -7,12 +7,10 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
     try:
         client = genai.Client(api_key=api_key)
         
-        # Inhalt dynamisch aufbauen (verhindert Fehler, wenn keine Bilder hochgeladen wurden)
         contents = [prompt_text]
         if pil_imgs:
             contents.extend(pil_imgs)
         
-        # Mit deinem aktiven Guthaben nutzen wir stabil gemini-2.0-flash
         response = client.models.generate_content(
             model='gemini-2.0-flash',
             contents=contents,
@@ -20,10 +18,13 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
                 response_mime_type="application/json"
             ),
         )
+        # Wenn es klappt, löschen wir einen eventuellen alten Fehler aus dem Speicher
+        st.session_state["last_gemini_error"] = None
         return json.loads(response.text)
+        
     except Exception as e:
-        # Hier wird der Fehler jetzt permanent als roter Kasten angezeigt, bis du ihn siehst
-        st.error(f"🚨 GENAUER FEHLER: {str(e)}")
+        # Wir speichern den Fehler permanent im Session State, damit er nicht verschwindet!
+        st.session_state["last_gemini_error"] = str(e)
         return {
             "gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0,
             "schritte": 0, "zirkel_min": 0, "zirkel_details": "", 
