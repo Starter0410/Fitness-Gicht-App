@@ -142,7 +142,6 @@ with st.sidebar:
 
 tab = st.session_state["nav_tab"]
 
-# Einheitlicher Zurück-Button für alle Unterseiten oben links
 if tab != "🏠 Startseite":
     if st.button("⬅️ Zurück zur Startseite", use_container_width=True, key="global_back_btn"):
         st.session_state["nav_tab"] = "🏠 Startseite"
@@ -150,7 +149,6 @@ if tab != "🏠 Startseite":
     st.markdown("---")
 
 if tab == "🏠 Startseite":
-    # Logo zentriert über der Überschrift
     _, col_logo, _ = st.columns([3, 1, 3])
     with col_logo:
         st.markdown("# 🏋️‍♂️")
@@ -166,7 +164,6 @@ if tab == "🏠 Startseite":
     col1.metric("Heutige Kalorien", f"{total_kcal} kcal")
     col2.metric("Heutiges Protein", f"{total_prot} g")
     
-    # Fortschrittsbalken mit neuen Zielwerten (2150 kcal, 140g Protein)
     st.markdown("---")
     st.subheader("⚡ Macro & Target Status")
     
