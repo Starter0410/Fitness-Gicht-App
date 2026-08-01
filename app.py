@@ -39,9 +39,9 @@ if "drinks" not in st.session_state:
 
 if "daily_meta" not in st.session_state:
     st.session_state["daily_meta"] = {
-        "gewicht": 80.0,
-        "kfa": 15.0,
-        "skel_musk": 38.0,
+        "gewicht": 69.7,
+        "kfa": 13.4,
+        "skel_musk": 34.3,
         "schritte": 8000,
         "notizen": ""
     }
@@ -150,7 +150,7 @@ if tab != "🏠 Startseite":
     st.markdown("---")
 
 if tab == "🏠 Startseite":
-    # Logo zentriert über der Überschrift mittels Streamlit Columns
+    # Logo zentriert über der Überschrift
     _, col_logo, _ = st.columns([3, 1, 3])
     with col_logo:
         st.markdown("# 🏋️‍♂️")
@@ -166,12 +166,12 @@ if tab == "🏠 Startseite":
     col1.metric("Heutige Kalorien", f"{total_kcal} kcal")
     col2.metric("Heutiges Protein", f"{total_prot} g")
     
-    # Fortschrittsbalken
+    # Fortschrittsbalken mit neuen Zielwerten (2150 kcal, 140g Protein)
     st.markdown("---")
     st.subheader("⚡ Macro & Target Status")
     
-    target_kcal = 2500
-    target_prot = 160
+    target_kcal = 2150
+    target_prot = 140
     
     kcal_progress = min(total_kcal / target_kcal, 1.0)
     prot_progress = min(total_prot / target_prot, 1.0)
