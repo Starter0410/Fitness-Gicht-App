@@ -1,7 +1,7 @@
 from google import genai
 from google.genai import types
 import json
-import streamlit as st
+import traceback
 
 def call_gemini_sdk(api_key, prompt_text, pil_imgs):
     try:
@@ -18,13 +18,15 @@ def call_gemini_sdk(api_key, prompt_text, pil_imgs):
                 response_mime_type="application/json"
             ),
         )
-        # Wenn es klappt, löschen wir einen eventuellen alten Fehler aus dem Speicher
-        st.session_state["last_gemini_error"] = None
         return json.loads(response.text)
         
     except Exception as e:
-        # Wir speichern den Fehler permanent im Session State, damit er nicht verschwindet!
-        st.session_state["last_gemini_error"] = str(e)
+        # Das wird direkt in dein schwarzes Terminal/Konsole gedruckt und bleibt dort stehen!
+        print("\n" + "="*50)
+        print("🚨 EXakter GEminI-FEHlEr IM HINTERGRUND:")
+        traceback.print_exc()
+        print("="*50 + "\n")
+        
         return {
             "gewicht": 0.0, "kfa": 0.0, "skelettmuskel": 0.0,
             "schritte": 0, "zirkel_min": 0, "zirkel_details": "", 
