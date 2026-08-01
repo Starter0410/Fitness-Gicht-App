@@ -92,37 +92,46 @@ def render_statistik_page(excel_file):
 
     st.markdown("### 🧬 Körperwerte (Body Recomp)")
     
+    # Hilfsspalten für feste Achsen-Begrenzung im Chart erzwingen
+    chart_df["Min_KG"] = 60.0
+    chart_df["Max_KG"] = 80.0
+    
+    chart_df["Min_KFA"] = 10.0
+    chart_df["Max_KFA"] = 19.0
+    
+    chart_df["Min_Musk"] = 30.0
+    chart_df["Max_Musk"] = 40.0
+
+    # 1. Gewicht (60 - 80)
     if "KG" in chart_df.columns:
-        st.write("**Gewicht (KG)**")
-        st.line_chart(chart_df[["KG"]])
+        st.write("**Gewicht (KG) – Bereich: 60 - 80 kg**")
+        st.line_chart(chart_df[["KG", "Min_KG", "Max_KG"]])
 
+    # 2. KFA (10 - 19)
     if "KFA" in chart_df.columns:
-        st.write("**Körperfettanteil KFA (%)**")
-        st.line_chart(chart_df[["KFA"]])
+        st.write("**Körperfettanteil KFA (%) – Bereich: 10 - 19 %**")
+        st.line_chart(chart_df[["KFA", "Min_KFA", "Max_KFA"]])
 
+    # 3. Skelettmuskelanteil (30 - 40)
     if "Skel.Musk" in chart_df.columns:
-        st.write("**Skelettmuskulatur**")
-        st.line_chart(chart_df[["Skel.Musk"]])
+        st.write("**Skelettmuskulatur – Bereich: 30 - 40**")
+        st.line_chart(chart_df[["Skel.Musk", "Min_Musk", "Max_Musk"]])
 
     st.markdown("---")
     st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken (inkl. Ziellinien)")
 
-    # Ziel-Spalten für die Charts hinzufügen
     chart_df["Ziel_Schritte"] = 10000
     chart_df["Ziel_KCAL"] = 2150
     chart_df["Ziel_Prot"] = 140
 
-    # Schritte mit Ziel (10.000)
     if "Schritte" in chart_df.columns:
         st.write("**Schritte-Verlauf (Ziel: 10.000)**")
         st.bar_chart(chart_df[["Schritte", "Ziel_Schritte"]])
 
-    # Kalorien mit Ziel (2150 kcal)
     if "KCAL" in chart_df.columns:
         st.write("**Kalorien-Trend (Ziel: 2.150 kcal)**")
         st.bar_chart(chart_df[["KCAL", "Ziel_KCAL"]])
 
-    # Protein mit Ziel (140 g)
     if "Prot" in chart_df.columns:
         st.write("**Protein-Trend (Ziel: 140 g)**")
         st.bar_chart(chart_df[["Prot", "Ziel_Prot"]])
