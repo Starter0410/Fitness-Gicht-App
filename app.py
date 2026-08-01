@@ -134,9 +134,9 @@ with st.sidebar:
 
 tab = st.session_state["nav_tab"]
 
-# Einheitlicher Zurück-Button für alle Unterseiten oben links
+# Einheitlicher Zurück-Button für alle Unterseiten oben links (nur 1 Mal!)
 if tab != "🏠 Startseite":
-    if st.button("⬅️ Zurück zur Startseite", use_container_width=True):
+    if st.button("⬅️ Zurück zur Startseite", use_container_width=True, key="global_back_btn"):
         st.session_state["nav_tab"] = "🏠 Startseite"
         st.rerun()
     st.markdown("---")
@@ -154,6 +154,10 @@ if tab == "🏠 Startseite":
     st.markdown("---")
     st.subheader("📌 Menü")
     
+    # Waage direkt an oberster Stelle platziert
+    if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
+        st.session_state["nav_tab"] = "Waage"
+        st.rerun()
     if st.button("🍳 Frühstück erfassen", use_container_width=True):
         st.session_state["nav_tab"] = "Frühstück"
         st.rerun()
@@ -168,9 +172,6 @@ if tab == "🏠 Startseite":
         st.rerun()
     if st.button("🥤 Getränke-Zähler", use_container_width=True):
         st.session_state["nav_tab"] = "Getränke"
-        st.rerun()
-    if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
-        st.session_state["nav_tab"] = "Waage"
         st.rerun()
     if st.button("🏋️‍♂️ Training & Aktivitäten", use_container_width=True):
         st.session_state["nav_tab"] = "Training"
