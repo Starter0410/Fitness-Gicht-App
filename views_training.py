@@ -92,20 +92,20 @@ def render_statistik_page(excel_file):
 
     st.markdown("### 🧬 Körperwerte (Body Recomp)")
     
-    # 1. Gewicht (60 bis 80 kg)
+    # 1. Gewicht
     if "KG" in chart_df.columns:
-        st.write("**Gewicht (KG) – Bereich: 60 - 80 kg**")
-        st.line_chart(chart_df[["KG"]], yticks=list(range(60, 82, 5)))
+        st.write("**Gewicht (KG)**")
+        st.line_chart(chart_df[["KG"]])
 
-    # 2. KFA (10 bis 18 %)
+    # 2. KFA
     if "KFA" in chart_df.columns:
-        st.write("**Körperfettanteil KFA (%) – Bereich: 10 - 18 %**")
-        st.line_chart(chart_df[["KFA"]], yticks=list(range(10, 19, 2)))
+        st.write("**Körperfettanteil KFA (%)**")
+        st.line_chart(chart_df[["KFA"]])
 
-    # 3. Skelettmuskelanteil (30 bis 40)
+    # 3. Skelettmuskelanteil
     if "Skel.Musk" in chart_df.columns:
-        st.write("**Skelettmuskulatur – Bereich: 30 - 40**")
-        st.line_chart(chart_df[["Skel.Musk"]], yticks=list(range(30, 41, 2)))
+        st.write("**Skelettmuskulatur**")
+        st.line_chart(chart_df[["Skel.Musk"]])
 
     st.markdown("---")
     st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken")
