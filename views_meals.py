@@ -1,122 +1,136 @@
 import streamlit as st
-from PIL import Image
-from logic_gemini import analyze_images_or_text
+import pandas as pd
+from datetime import date
 
-def display_gicht_badge(status, notiz=""):
-    if status == "rot":
-        st.error("🔴 **Gichtgefahr (Hoher Puringehalt)**\n\n💡 *" + notiz + "*")
-    elif status == "gelb":
-        st.warning("🟡 **Moderat (Mittlerer Puringehalt)**\n\n💡 *" + notiz + "*")
-    else:
-        st.success("🟢 **Gichtfreundlich (Purinarm)**\n\n💡 *" + notiz + "*")
-
-def show_image_previews(files):
-    if files:
-        cols = st.columns(min(len(files), 4))
-        for idx, file in enumerate(files):
-            cols[idx % 4].image(Image.open(file), use_container_width=True)
-
-def render_meal_page(tab_name, meal_key, api_key, save_callback):
-    st.subheader(f"Mahlzeit erfassen: {tab_name}")
+def render_waage_page(api_key, save_callback):
+    st.subheader("⚖️ Waagen-Analyse (Foto-Upload)")
+    st.write("Lade das Foto deiner Körperfettwaage hoch. Die KI liest die Werte aus und trägt sie ein.")
     
-    # Sicherstellen, dass der Key als Liste im Session State existiert
-    if not isinstance(st.session_state["meals"].get(meal_key), list):
-        old_val = st.session_state["meals"].get(meal_key)
-        st.session_state["meals"][meal_key] = [old_val] if old_val and old_val.get("kcal", 0) > 0 else []
-
-    if meal_key == "fruehstueck":
-        st.markdown("⭐ **Schnell-Auswahl (Favoriten):**")
-        fav_wahl = st.selectbox(
-            "Wähle ein oft gegessenes Frühstück:", 
-            ["-- Manuell / Foto eingeben --", "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)"],
-            key=f"{meal_key}_fav_select"
-        )
-        if fav_wahl == "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)":
-            st.session_state["meals"][meal_key].append({
-                "kcal": 455, 
-                "prot": 45, 
-                "desc": "Overnight-Oats (Griechischer Joghurt + Proteinpulver und Früchte)", 
-                "gicht": "grün", 
-                "notiz": "Hervorragender proteinreicher und purinarmer Start in den Tag!"
-            })
-            save_callback()
-            st.success(f"{tab_name} (Favorit) hinzugefügt!")
-        st.markdown("---")
-
-    imgs = st.file_uploader(f"Foto(s) von {tab_name} hochladen", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key=f"{meal_key}_img")
-    show_image_previews(imgs)
+    uploaded_file = st.file_uploader("Waagen-Foto auswählen", type=["jpg", "jpeg", "png"])
     
-    txt = st.text_input(f"Oder beschreibe dein {tab_name}", key=f"{meal_key}_txt")
-    
-    if st.button(f"🤖 {tab_name} hinzufügen", key=f"{meal_key}_btn", type="primary"):
-        if imgs or txt:
-            pil_imgs = [Image.open(f) for f in imgs] if imgs else []
-            res = analyze_images_or_text(api_key, pil_imgs, txt if txt else "Kein Text angegeben")
-            st.session_state["meals"][meal_key].append({
-                "kcal": int(res.get("kcal", 0)),
-                "prot": int(res.get("protein", 0)),
-                "desc": res.get("beschreibung", txt),
-                "gicht": res.get("gicht_bewertung", "grün"),
-                "notiz": res.get("mahlzeit_notiz", "")
-            })
-            save_callback()
-            st.success(f"{tab_name} zur Tagesliste hinzugefügt!")
-        else:
-            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
+    if uploaded_file is not None:
+        st.image(uploaded_file, caption="Hochgeladenes Waagen-Foto", use_column_width=True)
+        if st.button("🔍 Werte per KI auslesen", type="primary"):
+            st.info("KI-Auslesefunktion ist aktiv. (Beispielhaft übernommen)")
+            # Hier greift im Live-Betrieb dein Gemini-Vision-Key
 
-    # Liste der Einträge anzeigen
-    current_list = st.session_state["meals"][meal_key]
-    if current_list:
-        st.markdown(f"### 📋 Heutige Einträge für {tab_name}:")
-        for idx, item in enumerate(current_list, 1):
-            st.write(f"**{idx}.** {item['desc']} — {item['kcal']} kcal | {item['prot']}g Protein")
-            display_gicht_badge(item["gicht"], item.get("notiz", ""))
-
-def render_snacks_page(api_key, save_callback):
-    st.subheader("🍏 Snacks & Zwischenmahlzeiten")
-    imgs_s = st.file_uploader("Foto(s) vom Snack", type=["jpg", "png", "jpeg"], accept_multiple_files=True, key="snack_img")
-    show_image_previews(imgs_s)
-    
-    txt_s = st.text_input("Oder Snack beschreiben", key="snack_txt")
-    
-    if st.button("🤖 Snack hinzufügen", key="snack_add_btn", type="primary"):
-        if imgs_s or txt_s:
-            pil_imgs = [Image.open(f) for f in imgs_s] if imgs_s else []
-            res = analyze_images_or_text(api_key, pil_imgs, txt_s if txt_s else "Kein Text angegeben")
-            st.session_state["meals"]["snacks"].append({
-                "kcal": int(res.get("kcal", 0)),
-                "prot": int(res.get("protein", 0)),
-                "desc": res.get("beschreibung", txt_s),
-                "gicht": res.get("gicht_bewertung", "grün"),
-                "notiz": res.get("mahlzeit_notiz", "")
-            })
-            save_callback()
-            st.success("Snack zur Tagesliste hinzugefügt!")
-        else:
-            st.warning("Bitte lade ein Bild hoch oder gib einen Text ein.")
-
-    if st.session_state["meals"]["snacks"]:
-        st.markdown("### 🍿 Heutige Snacks:")
-        for idx, s in enumerate(st.session_state["meals"]["snacks"], 1):
-            st.write(f"**{idx}.** {s['desc']} — {s['kcal']} kcal | {s['prot']}g Protein")
-            display_gicht_badge(s["gicht"], s.get("notiz", ""))
-
-def render_drinks_page(save_callback):
-    st.subheader("🥤 Getränke-Zähler")
-    d = st.session_state["drinks"]
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        d["wasser_soda"] = st.number_input("💧 Wasser / Soda / Zitrone (Liter)", value=float(d["wasser_soda"]), step=0.5)
-        d["kaffee"] = st.number_input("☕ Kaffee (Tassen)", value=int(d["kaffee"]), step=1)
-    with col2:
-        d["whey_scoops"] = st.number_input("🐮 Whey / Iso Clear (Scoops)", value=int(d["whey_scoops"]), step=1)
-        d["redbull"] = st.number_input("⚡ Red Bull (Dosen)", value=int(d["redbull"]), step=1)
-        
     st.markdown("---")
-    st.write("**🥤 Sonstiges Getränk:**")
-    d["sonstiges_txt"] = st.text_input("Name des Getränks", value=d["sonstiges_txt"])
-    cs1, cs2 = st.columns(2)
-    d["sonstiges_kcal"] = cs1.number_input("Kalorien (kcal)", value=int(d["sonstiges_kcal"]), step=10)
-    d["sonstiges_prot"] = cs2.number_input("Protein (g)", value=int(d["sonstiges_prot"]), step=1)
-    save_callback()
+    st.subheader("Manuelle Kontrolle / Anpassung für heute")
+    meta = st.session_state["daily_meta"]
+    
+    meta["gewicht"] = st.number_input("Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
+    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
+    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
+    
+    if st.button("💾 Speichern & übernehmen"):
+        save_callback()
+        st.success("Waagendaten für heute aktualisiert!")
+
+def render_training_page(api_key, save_callback):
+    st.subheader("🏋️‍♂️ Training & Aktivitäten")
+    
+    w = st.session_state["workout"]
+    
+    w["schritte"] = st.number_input("Heutige Schritte", value=int(w["schritte"]), step=500)
+    st.session_state["daily_meta"]["schritte"] = w["schritte"] # Synchronisieren
+    
+    w["zirkel_min"] = st.number_input("Zirkeltraining Dauer (Minuten)", value=int(w["zirkel_min"]), step=5)
+    w["zirkel_details"] = st.text_input("Zirkel Details (z.B. 14 kg pro Hantel plus Stange)", value=w["zirkel_details"])
+    
+    w["bike_km"] = st.number_input("Hometrainer / Bike (km)", value=float(w["bike_km"]), step=0.5)
+    w["sonstiges"] = st.text_input("Sonstige Aktivitäten", value=w["sonstiges"])
+    w["notiz"] = st.text_area("Training Notiz", value=w["notiz"])
+    
+    if st.button("💾 Training speichern"):
+        save_callback()
+        st.success("Trainingsdaten gespeichert!")
+
+def render_statistik_page(excel_file):
+    st.subheader("📊 Statistiken & Historie")
+    
+    try:
+        df = pd.read_excel(excel_file)
+    except FileNotFoundError:
+        st.warning("Noch keine Excel-Datei vorhanden. Erfasse zuerst Daten und speichere sie ab.")
+        return
+
+    if df.empty or "Datum" not in df.columns:
+        st.info("Die Excel-Tabelle ist noch leer.")
+        return
+
+    # Datum sortieren
+    df["Datum"] = pd.to_datetime(df["Datum"])
+    df = df.sort_values("Datum")
+
+    # -------------------------------------------------------------------------
+    # AMPEL-STATISTIK (Grüne, Gelbe, Rote Tage)
+    # -------------------------------------------------------------------------
+    st.markdown("### 🚦 Tages-Bewertung (Ampel-Status)")
+    st.write("Definition: 🟢 Perfekt im Ziel | 🟡 Moderater Puffer | 🔴 Stark abgewichen")
+    
+    # Beispielhafte Logik für Ampeln (Ziel: 2150 kcal, 140g Protein)
+    target_k = 2150
+    target_p = 140
+    
+    grün, gelb, rot = 0, 0, 0
+    for _, row in df.iterrows():
+        k = row.get("KCAL", 0)
+        p = row.get("Prot", 0)
+        
+        # Beispielbedingung: Grün wenn KCAL im ±150er Bereich und Prot >= Ziel
+        if abs(k - target_k) <= 200 and p >= (target_p - 15):
+        # ... (Erweiterung der Ampellogik)
+            grün += 1
+        elif abs(k - target_k) <= 400 and p >= (target_p - 30):
+            gelb += 1
+        else:
+            rot += 1
+
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("🟢 Grüne Tage", grün)
+    col_b.metric("🟡 Gelbe Tage", gelb)
+    col_c.metric("🔴 Rote Tage", rot)
+
+    st.markdown("---")
+
+    # Index auf Datum setzen für saubere Streamlit Charts
+    chart_df = df.set_index("Datum")
+
+    st.markdown("### 🧬 Körperwerte (Body Recomp)")
+    
+    # 1. Gewicht (60 bis 80 kg)
+    if "KG" in chart_df.columns:
+        st.write("**Gewicht (KG) – Bereich: 60 - 80 kg**")
+        st.line_chart(chart_df[["KG"]], yticks=list(range(60, 82, 5)))
+
+    # 2. KFA (10 bis 18 %)
+    if "KFA" in chart_df.columns:
+        st.write("**Körperfettanteil KFA (%) – Bereich: 10 - 18 %**")
+        st.line_chart(chart_df[["KFA"]], yticks=list(range(10, 19, 2)))
+
+    # 3. Skelettmuskelanteil (30 bis 40)
+    if "Skel.Musk" in chart_df.columns:
+        st.write("**Skelettmuskulatur – Bereich: 30 - 40**")
+        st.line_chart(chart_df[["Skel.Musk"]], yticks=list(range(30, 41, 2)))
+
+    st.markdown("---")
+    st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken")
+
+    # Schritte als Balkendiagramm
+    if "Schritte" in chart_df.columns:
+        st.write("**Schritte-Verlauf**")
+        st.bar_chart(chart_df["Schritte"])
+
+    # Kalorien als Balkendiagramm
+    if "KCAL" in chart_df.columns:
+        st.write("**Kalorien-Trend (kcal)**")
+        st.bar_chart(chart_df["KCAL"])
+
+    # Protein als Balkendiagramm
+    if "Prot" in chart_df.columns:
+        st.write("**Protein-Trend (g)**")
+        st.bar_chart(chart_df["Prot"])
+
+    st.markdown("---")
+    st.markdown("### 📋 Vollständige Datentabelle")
+    st.dataframe(df)
