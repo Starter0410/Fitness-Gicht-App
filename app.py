@@ -84,24 +84,79 @@ def get_worst_gicht_status(items):
     return worst_word
 
 def generate_summary_string():
-    """Generiert den zusammenfassenden Text aller Mahlzeiten inkl. Notizen & Gicht-Status für den Export."""
+    """Generiert eine intelligente, motivierende Tagesnotiz (Gicht, Recomp, Training)."""
     m = st.session_state["meals"]
-    parts = []
+    w = st.session_state["workout"]
+    meta = st.session_state["daily_meta"]
     
+    total_kcal, total_prot = get_todays_totals()
+    target_kcal = 2150
+    target_prot = 140
+    
+    # 1. Gicht-Auswertung über alle Mahlzeiten sammeln
+    all_statuses = []
+    meal_details = []
     for cat_label, cat_key in [("Frühstück", "fruehstueck"), ("Mittag", "mittagessen"), ("Abend", "abendessen"), ("Snacks", "snacks")]:
         items = m.get(cat_key, [])
         if items:
-            worst_status = get_worst_gicht_status(items)
-            item_strs = []
+            worst_cat_status = get_worst_gicht_status(items)
+            all_statuses.append(worst_cat_status)
             for itm in items:
-                status = itm.get('gicht_status', 'Grün')
-                txt = f"{itm['desc']} ({itm['kcal']} kcal, {itm['prot']}g, Gicht: {status})"
-                if itm.get('notiz'):
-                    txt += f" [Notiz: {itm['notiz']}]"
-                item_strs.append(txt)
-            parts.append(f"{cat_label} [Gesamt-Gicht: {worst_status}]: {'; '.join(item_strs)}")
-            
-    return " | ".join(parts) if parts else "Keine Mahlzeiten erfasst"
+                meal_details.append(f"{cat_label}: {itm['desc']} ({itm['kcal']} kcal, {itm['prot']}g, Gicht: {itm.get('gicht_status', 'Grün')})")
+    
+    if "Rot" in all_statuses:
+        gicht_text = "⚠️ Gicht-Status: Heute waren rote (purinreiche) Komponenten dabei. Achte auf gute Hydrierung und schau, dass es morgen wieder purinärmer wird!"
+    elif "Gelb" in all_statuses:
+        gicht_text = "⚠️ Gicht-Status: Solides Mittelfeld (Gelb). Ganz okay, aber im Blick behalten!"
+    elif all_statuses:
+        gicht_text = "🟢 Gicht-Status: Vorbildlich! Alle Mahlzeiten im grünen Bereich. Deine Gelenke werden es dir danken!"
+    else:
+        gicht_text = "Gicht-Status: Noch keine Mahlzeiten erfasst."
+
+    # 2. Body Recomposition & Makros Bewertung
+    kcal_diff = total_kcal - target_kcal
+    if abs(kcal_diff) <= 150:
+        recomp_kcal_msg = f"Perfekter Punktlandungs-Kalorienbereich ({total_kcal}/{target_kcal} kcal) – ideal für saubere Body Recomposition!"
+    elif kcal_diff < 0:
+        recomp_kcal_msg = f"Leichtes Defizit ({total_kcal}/{target_kcal} kcal) – gut für den Fettabbau, halte das Protein hoch."
+    else:
+        recomp_kcal_msg = f"Leichter Überschuss ({total_kcal}/{target_kcal} kcal) – Energie für den Muskelaufbau ist da!"
+
+    if total_prot >= target_prot:
+        recomp_prot_msg = f"Stark! Proteinziel mit {total_prot}g (Ziel: {target_prot}g) souverän erreicht. Muskelschutz läuft!"
+    else:
+        recomp_prot_msg = f"Bisher {total_prot}g Protein (Ziel: {target_prot}g) – da geht noch ein kleiner Protein-Boost!"
+
+    # 3. Training & Aktivität Bewertung
+    training_parts = []
+    if w.get("zirkel_min", 0) > 0:
+        training_parts.append(f"Zirkeltraining ({w['zirkel_min']} Min)")
+    if w.get("bike_km", 0.0) > 0:
+        training_parts.append(f"Cardio/Bike ({w['bike_km']} km)")
+    if w.get("sonstiges"):
+        training_parts.append(f"Aktivität: {w['sonstiges']}")
+    
+    steps = meta.get("schritte", 0)
+    if steps >= 10000:
+        step_msg = f"🔥 Kranke Schritte-Performance: {steps} Schritte! Absolute Maschinen-Leistung."
+    elif steps >= 7500:
+        step_msg = f"👍 Solide Bewegung: {steps} Schritte im Zielkorridor."
+    else:
+        step_msg = f"👟 {steps} Schritte – da geht heute Abend noch ein kleiner Verdauungsspaziergang!"
+
+    training_summary = ", ".join(training_parts) if training_parts else "Kein formelles Zusatztraining eingetragen"
+
+    # 4. Motivierender Abschluss-String zusammenbauen
+    summary_lines = [
+        f"--- TAGESANALYSE & MOTIVATION ---",
+        f"1. {gicht_text}",
+        f"2. Recomp & Makros: {recomp_kcal_msg} {recomp_prot_msg}",
+        f"3. Training & Schritte: {training_summary}. {step_msg}",
+        f"Gewicht: {meta['gewicht']} kg | KFA: {meta['kfa']}% | Muskeln: {meta['skel_musk']} kg",
+        f"Zusammenfassung Mahlzeiten: {'; '.join(meal_details) if meal_details else 'Keine'}"
+    ]
+    
+    return "\n".join(summary_lines)
 
 def save_current_day_to_excel():
     """Schreibt den aktuellen Tag fehlerfrei in die Excel-Datei."""
@@ -110,7 +165,7 @@ def save_current_day_to_excel():
     
     summary_text = generate_summary_string()
     if meta.get("notizen"):
-        all_desc = f"{summary_text} | Tagesnotiz: {meta['notizen']}"
+        all_desc = f"{summary_text}\nZusatznotiz: {meta['notizen']}"
     else:
         all_desc = summary_text
 
@@ -272,7 +327,6 @@ elif tab == "Abschluss":
     
     total_kcal, total_prot = get_todays_totals()
     
-    # Erweiterte Kontrollbox mit Notizen und Gicht-Status pro Mahlzeit inklusive Worst-Case-Ermittlung
     with st.expander("👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status (Kontrolle)", expanded=True):
         m = st.session_state["meals"]
         d = st.session_state["drinks"]
@@ -306,12 +360,12 @@ elif tab == "Abschluss":
     meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
     meta["schritte"] = st.number_input("Heutige Schritte", value=int(meta["schritte"]), step=500)
     
-    if st.button("✨ Tagesnotiz aus Mahlzeiten generieren"):
+    if st.button("✨ Motivierende Tagesnotiz generieren"):
         meta["notizen"] = generate_summary_string()
-        st.success("Tagesnotiz erfolgreich aus den Mahlzeiten generiert!")
+        st.success("Motivierende Tagesnotiz erfolgreich erstellt!")
         st.rerun()
 
-    meta["notizen"] = st.text_area("Tagesnotizen / Befinden (wird in Excel gespeichert)", value=meta["notizen"])
+    meta["notizen"] = st.text_area("Tagesnotizen / Motivations-Feedback (wird in Excel gespeichert)", value=meta["notizen"])
     
     st.info(f"**Bisherige Tagesbilanz:** {total_kcal} kcal | {total_prot} g Protein")
     
