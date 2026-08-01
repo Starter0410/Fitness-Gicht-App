@@ -1,124 +1,81 @@
 import streamlit as st
-import pandas as pd
-from datetime import date
 
-def render_waage_page(api_key, save_callback):
-    st.subheader("⚖️ Waagen-Analyse (Foto-Upload)")
-    st.write("Lade das Foto deiner Körperfettwaage hoch. Die KI liest die Werte aus und trägt sie ein.")
+def render_meal_page(title, meal_key, api_key, save_callback):
+    st.subheader(f"🍳 {title} erfassen")
     
-    uploaded_file = st.file_uploader("Waagen-Foto auswählen", type=["jpg", "jpeg", "png"])
+    desc = st.text_input(f"Beschreibung für {title}", key=f"desc_{meal_key}")
+    kcal = st.number_input("Kalorien (kcal)", min_value=0, step=10, key=f"kcal_{meal_key}")
+    prot = st.number_input("Protein (g)", min_value=0.0, step=1.0, key=f"prot_{meal_key}")
     
-    if uploaded_file is not None:
-        st.image(uploaded_file, caption="Hochgeladenes Waagen-Foto", use_column_width=True)
-        if st.button("🔍 Werte per KI auslesen", type="primary"):
-            st.info("KI-Auslesefunktion ist aktiv. (Beispielhaft übernommen)")
-
-    st.markdown("---")
-    st.subheader("Manuelle Kontrolle / Anpassung für heute")
-    meta = st.session_state["daily_meta"]
-    
-    meta["gewicht"] = st.number_input("Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
-    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
-    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
-    
-    if st.button("💾 Speichern & übernehmen"):
-        save_callback()
-        st.success("Waagendaten für heute aktualisiert!")
-
-def render_training_page(api_key, save_callback):
-    st.subheader("🏋️‍♂️ Training & Aktivitäten")
-    
-    w = st.session_state["workout"]
-    
-    w["schritte"] = st.number_input("Heutige Schritte", value=int(w["schritte"]), step=500)
-    st.session_state["daily_meta"]["schritte"] = w["schritte"]
-    
-    w["zirkel_min"] = st.number_input("Zirkeltraining Dauer (Minuten)", value=int(w["zirkel_min"]), step=5)
-    w["zirkel_details"] = st.text_input("Zirkel Details (z.B. 14 kg pro Hantel plus Stange)", value=w["zirkel_details"])
-    
-    w["bike_km"] = st.number_input("Hometrainer / Bike (km)", value=float(w["bike_km"]), step=0.5)
-    w["sonstiges"] = st.text_input("Sonstige Aktivitäten", value=w["sonstiges"])
-    w["notiz"] = st.text_area("Training Notiz", value=w["notiz"])
-    
-    if st.button("💾 Training speichern"):
-        save_callback()
-        st.success("Trainingsdaten gespeichert!")
-
-def render_statistik_page(excel_file):
-    st.subheader("📊 Statistiken & Historie")
-    
-    try:
-        df = pd.read_excel(excel_file)
-    except FileNotFoundError:
-        st.warning("Noch keine Excel-Datei vorhanden. Erfasse zuerst Daten und speichere sie ab.")
-        return
-
-    if df.empty or "Datum" not in df.columns:
-        st.info("Die Excel-Tabelle ist noch leer.")
-        return
-
-    df["Datum"] = pd.to_datetime(df["Datum"])
-    df = df.sort_values("Datum")
-
-    # -------------------------------------------------------------------------
-    # AMPEL-STATISTIK (Grüne, Gelbe, Rote Tage)
-    # -------------------------------------------------------------------------
-    st.markdown("### 🚦 Tages-Bewertung (Ampel-Status)")
-    st.write("Definition: 🟢 Perfekt im Ziel | 🟡 Moderater Puffer | 🔴 Stark abgewichen")
-    
-    target_k = 2150
-    target_p = 140
-    
-    grün, gelb, rot = 0, 0, 0
-    for _, row in df.iterrows():
-        k = row.get("KCAL", 0)
-        p = row.get("Prot", 0)
-        
-        if abs(k - target_k) <= 200 and p >= (target_p - 15):
-            grün += 1
-        elif abs(k - target_k) <= 400 and p >= (target_p - 30):
-            gelb += 1
+    if st.button("➕ Hinzufügen", key=f"btn_{meal_key}"):
+        if desc:
+            st.session_state["meals"][meal_key].append({"desc": desc, "kcal": kcal, "prot": prot})
+            save_callback()
+            st.success(f"{title} hinzugefügt!")
+            st.rerun()
         else:
-            rot += 1
-
-    col_a, col_b, col_c = st.columns(3)
-    col_a.metric("🟢 Grüne Tage", grün)
-    col_b.metric("🟡 Gelbe Tage", gelb)
-    col_c.metric("🔴 Rote Tage", rot)
+            st.warning("Bitte gib eine Beschreibung ein.")
 
     st.markdown("---")
-
-    chart_df = df.set_index("Datum")
-
-    st.markdown("### 🧬 Körperwerte (Body Recomp)")
+    st.write(f"**Bisherige Einträge für {title}:**")
     
-    if "KG" in chart_df.columns:
-        st.write("**Gewicht (KG) – Bereich: 60 - 80 kg**")
-        st.line_chart(chart_df[["KG"]], yticks=list(range(60, 82, 5)))
+    items = st.session_state["meals"].get(meal_key, [])
+    if not items:
+        st.info("Noch keine Einträge.")
+    for idx, item in enumerate(items):
+        col1, col2 = st.columns([4, 1])
+        col1.write(f"- {item['desc']} ({item['kcal']} kcal, {item['prot']}g Protein)")
+        if col2.button("❌", key=f"del_{meal_key}_{idx}"):
+            st.session_state["meals"][meal_key].pop(idx)
+            save_callback()
+            st.rerun()
 
-    if "KFA" in chart_df.columns:
-        st.write("**Körperfettanteil KFA (%) – Bereich: 10 - 18 %**")
-        st.line_chart(chart_df[["KFA"]], yticks=list(range(10, 19, 2)))
-
-    if "Skel.Musk" in chart_df.columns:
-        st.write("**Skelettmuskulatur – Bereich: 30 - 40**")
-        st.line_chart(chart_df[["Skel.Musk"]], yticks=list(range(30, 41, 2)))
+def render_snacks_page(api_key, save_callback):
+    st.subheader("🍏 Snacks & Zwischenmahlzeiten")
+    
+    desc = st.text_input("Snack Beschreibung", key="desc_snacks")
+    kcal = st.number_input("Kalorien (kcal)", min_value=0, step=10, key="kcal_snacks")
+    prot = st.number_input("Protein (g)", min_value=0.0, step=1.0, key="prot_snacks")
+    
+    if st.button("➕ Snack hinzufügen", key="btn_snacks"):
+        if desc:
+            st.session_state["meals"]["snacks"].append({"desc": desc, "kcal": kcal, "prot": prot})
+            save_callback()
+            st.success("Snack hinzugefügt!")
+            st.rerun()
+        else:
+            st.warning("Bitte gib eine Beschreibung ein.")
 
     st.markdown("---")
-    st.markdown("### 🥗 Ernährungs- & Aktivitäts-Balken")
+    st.write("**Bisherige Snacks:**")
+    
+    items = st.session_state["meals"].get("snacks", [])
+    if not items:
+        st.info("Noch keine Snacks erfasst.")
+    for idx, item in enumerate(items):
+        col1, col2 = st.columns([4, 1])
+        col1.write(f"- {item['desc']} ({item['kcal']} kcal, {item['prot']}g Protein)")
+        if col2.button("❌", key=f"del_snacks_{idx}"):
+            st.session_state["meals"]["snacks"].pop(idx)
+            save_callback()
+            st.rerun()
 
-    if "Schritte" in chart_df.columns:
-        st.write("**Schritte-Verlauf**")
-        st.bar_chart(chart_df["Schritte"])
-
-    if "KCAL" in chart_df.columns:
-        st.write("**Kalorien-Trend (kcal)**")
-        st.bar_chart(chart_df["KCAL"])
-
-    if "Prot" in chart_df.columns:
-        st.write("**Protein-Trend (g)**")
-        st.bar_chart(chart_df["Prot"])
-
+def render_drinks_page(save_callback):
+    st.subheader("🥤 Getränke-Zähler")
+    
+    d = st.session_state["drinks"]
+    
+    d["wasser_soda"] = st.number_input("Wasser / Soda (Liter)", value=float(d["wasser_soda"]), step=0.5)
+    d["kaffee"] = st.number_input("Kaffee (Tassen)", value=int(d["kaffee"]), step=1)
+    d["whey_scoops"] = st.number_input("Whey Protein (Scoops)", value=int(d["whey_scoops"]), step=1)
+    d["redbull"] = st.number_input("Red Bull / Energy (Dosen)", value=int(d["redbull"]), step=1)
+    
     st.markdown("---")
-    st.markdown("### 📋 Vollständige Datentabelle")
-    st.dataframe(df)
+    st.write("**Sonstige Getränke (optional)**")
+    d["sonstiges_txt"] = st.text_input("Beschreibung", value=d["sonstiges_txt"])
+    d["sonstiges_kcal"] = st.number_input("Kalorien (kcal)", value=int(d["sonstiges_kcal"]), step=10)
+    d["sonstiges_prot"] = st.number_input("Protein (g)", value=float(d["sonstiges_prot"]), step=1.0)
+    
+    if st.button("💾 Getränke speichern"):
+        save_callback()
+        st.success("Getränkewerte aktualisiert!")
