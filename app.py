@@ -74,7 +74,7 @@ if "meals" not in st.session_state:
         }
 
 if "drinks" not in st.session_state:
-    if cached_state and "drinks" in cached_state:
+    if cached_state and "drinks" in cached_state and isinstance(cached_state["drinks"], dict):
         st.session_state["drinks"] = cached_state["drinks"]
     else:
         st.session_state["drinks"] = {
@@ -160,10 +160,23 @@ def get_todays_totals():
     snack_kcal = sum([s["kcal"] for s in m.get("snacks", [])])
     snack_prot = sum([s["prot"] for s in m.get("snacks", [])])
 
-    whey_kcal = d["whey_scoops"] * 120
-    whey_prot = d["whey_scoops"] * 30
-    total_drink_kcal = whey_kcal + d["sonstiges_kcal"]
-    total_drink_prot = whey_prot + d["sonstiges_prot"]
+    # Absicherung, falls d kein Dict ist (z.B. alter Cache-Rest)
+    if not isinstance(d, dict):
+        d = {
+            "wasser_soda": 0,
+            "kaffee": 0,
+            "whey_scoops": 0,
+            "redbull": 0,
+            "sonstiges_txt": "",
+            "sonstiges_kcal": 0,
+            "sonstiges_prot": 0,
+        }
+        st.session_state["drinks"] = d
+
+    whey_kcal = d.get("whey_scoops", 0) * 120
+    whey_prot = d.get("whey_scoops", 0) * 30
+    total_drink_kcal = whey_kcal + d.get("sonstiges_kcal", 0)
+    total_drink_prot = whey_prot + d.get("sonstiges_prot", 0)
 
     total_kcal = (
         fruehstueck_kcal
@@ -405,11 +418,11 @@ def save_current_day_to_excel():
         "Snacks": format_meal_column(m.get("snacks", [])),
         "Snack-Ampel": get_worst_gicht_status(m.get("snacks", [])),
         "Snacks-Notiz": format_meal_note(m.get("snacks", [])),
-        "Wasser/Soda/Zitrone": d["wasser_soda"],
-        "Red-": d["redbull"],
-        "Kaffe": d["kaffee"],
-        "Whey": d["whey_scoops"],
-        "Getränke-Sonstige": d["sonstiges_txt"],
+        "Wasser/Soda/Zitrone": d.get("wasser_soda", 0),
+        "Red-": d.get("redbull", 0),
+        "Kaffe": d.get("kaffee", 0),
+        "Whey": d.get("whey_scoops", 0),
+        "Getränke-Sonstige": d.get("sonstiges_txt", ""),
         "Schritte": meta["schritte"],
         "Training": w.get("zirkel_min", 0),
         "Fahrrad (km)": w.get("bike_km", 0.0),
@@ -580,6 +593,7 @@ elif tab == "Abschluss":
     st.subheader("🔍 Tagesabschluss & Kontrollansicht")
 
     total_kcal, total_prot = get_todays_totals()
+    d_safe = st.session_state["drinks"] if isinstance(st.session_state["drinks"], dict) else {}
 
     with st.expander(
         "👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status"
@@ -587,7 +601,6 @@ elif tab == "Abschluss":
         expanded=True,
     ):
         m = st.session_state["meals"]
-        d = st.session_state["drinks"]
 
         st.markdown(
             f"**Gesamtbilanz:** 🔥 {total_kcal} kcal | 🥩 {total_prot} g Protein"
@@ -619,14 +632,14 @@ elif tab == "Abschluss":
 
         st.markdown("---")
         st.markdown(
-            f"**🥤 Getränke:** Wasser/Soda: {d['wasser_soda']}L | Kaffee:"
-            f" {d['kaffee']} Tassen | Whey: {d['whey_scoops']} Scoops | Energy:"
-            f" {d['redbull']} Dosen"
+            f"**🥤 Getränke:** Wasser/Soda: {d_safe.get('wasser_soda', 0)}L | Kaffee:"
+            f" {d_safe.get('kaffee', 0)} Tassen | Whey: {d_safe.get('whey_scoops', 0)} Scoops | Energy:"
+            f" {d_safe.get('redbull', 0)} Dosen"
         )
-        if d["sonstiges_txt"]:
+        if d_safe.get("sonstiges_txt"):
             st.markdown(
-                f"*Sonstiges:* {d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal,"
-                f" {d['sonstiges_prot']}g Protein)"
+                f"*Sonstiges:* {d_safe.get('sonstiges_txt')} ({d_safe.get('sonstiges_kcal', 0)} kcal,"
+                f" {d_safe.get('sonstiges_prot', 0)}g Protein)"
             )
 
     st.markdown("---")
