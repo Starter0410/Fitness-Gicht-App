@@ -90,7 +90,6 @@ def load_draft():
         except Exception:
             pass
 
-# Draft beim Start laden
 load_draft()
 
 # -------------------------------------------------------------------------
@@ -226,6 +225,10 @@ if tab == "🏠 Startseite":
     st.markdown("---")
     st.subheader("📌 Menü")
     
+    # Waage an ERSTER Stelle
+    if st.button("⚖️ Waage & KI-Auslese", use_container_width=True):
+        st.session_state["nav_tab"] = "Waage"
+        st.rerun()
     if st.button("🍳 Frühstück erfassen", use_container_width=True):
         st.session_state["nav_tab"] = "Frühstück"
         st.rerun()
@@ -241,12 +244,20 @@ if tab == "🏠 Startseite":
     if st.button("🥤 Getränke-Zähler", use_container_width=True):
         st.session_state["nav_tab"] = "Getränke"
         st.rerun()
-    if st.button("⚖️ Waage & KI-Auslese", use_container_width=True):
-        st.session_state["nav_tab"] = "Waage"
-        st.rerun()
     if st.button("🏁 Tagesabschluss & Kontrollansicht", use_container_width=True):
         st.session_state["nav_tab"] = "Tagesabschluss"
         st.rerun()
+
+elif tab == "Waage":
+    st.title("⚖️ Waage & KI-Auslese")
+    st.write("Hier kannst du das Foto deiner Waage erfassen oder die Werte manuell eintragen.")
+    meta = st.session_state["daily_meta"]
+    meta["gewicht"] = st.number_input("Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
+    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
+    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
+    if st.button("💾 Werte speichern"):
+        save_draft()
+        st.success("Waage-Daten erfolgreich gespeichert!")
 
 elif tab == "Frühstück":
     render_meal_page("Frühstück", "fruehstueck", st.session_state["api_key"], save_current_day_to_excel)
@@ -263,21 +274,10 @@ elif tab == "Snacks":
 elif tab == "Getränke":
     render_drinks_page(save_current_day_to_excel)
 
-elif tab == "Waage":
-    st.title("⚖️ Waage & KI-Auslese")
-    st.write("Hier kannst du das Foto deiner Waage hochladen oder die Werte manuell erfassen.")
-    meta = st.session_state["daily_meta"]
-    meta["gewicht"] = st.number_input("Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
-    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
-    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
-    if st.button("💾 Werte speichern"):
-        save_draft()
-        st.success("Waage-Daten gespeichert!")
-
 elif tab == "Tagesabschluss":
     st.title("🏁 Tagesabschluss & Kontrollansicht")
     total_kcal, total_prot = get_todays_totals()
     st.metric("Gesamtbilanz", f"{total_kcal} kcal", f"{total_prot} g Protein")
     if st.button("🚀 In Excel speichern & Download vorbereiten"):
         save_current_day_to_excel()
-        st.success("Erfolgreich in die Excel-Tabelle geschrieben!")
+        st.success("Erfolgreich in die Excel-Tabelle geschrieben und gespeichert!")
