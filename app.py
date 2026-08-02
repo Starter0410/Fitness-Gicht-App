@@ -350,6 +350,7 @@ def clear_todays_data():
             os.remove(CACHE_FILE)
         except Exception:
             pass
+    save_cache()
 
 
 def save_current_day_to_excel():
@@ -661,10 +662,9 @@ elif tab == "Abschluss":
     st.info(f"**Bisherige Tagesbilanz:** {total_kcal} kcal | {total_prot} g Protein")
 
     if st.button("🚀 In Excel speichern & Download vorbereiten", type="primary"):
-        save_current_day_to_excel() # Schreibt die Daten in deine Excel-Tabelle
+        save_current_day_to_excel()
         st.success("Tagesdaten erfolgreich in die Excel-Tabelle geschrieben!")
 
-        # Datei sicher im Read-Modus einlesen für den Download
         with open(EXCEL_FILE, "rb") as f:
             excel_bytes = f.read()
             
@@ -674,6 +674,7 @@ elif tab == "Abschluss":
             file_name=EXCEL_FILE,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
 # -------------------------------------------------------------------------
 # CACHE AM ENDE DES SKRIPTS SPEICHERN (greift nach allen Widgets & Interaktionen)
 # -------------------------------------------------------------------------
