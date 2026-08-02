@@ -62,7 +62,11 @@ page = st.sidebar.radio(
     ["Frühstück", "Mittagessen", "Abendessen", "Snacks", "Getränke", "Vorlagen verwalten", "Tagesabschluss & Kontrolle"]
 )
 
-API_KEY = st.sidebar.secrets.get("GEMINI_API_KEY", "")
+# Sicherer Zugriff auf Streamlit Secrets (abgesichert gegen AttributeError)
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    API_KEY = ""
 
 # --- SEITEN LOGIK ---
 if page == "Frühstück":
