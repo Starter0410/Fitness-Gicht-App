@@ -101,7 +101,7 @@ def render_meal_page(title, key, api_key, save_callback):
                         st.session_state["meals"][key] = []
                     
                     st.session_state["meals"][key].append({
-                        "titel": matched["titel"],  # <--- Korrekt als Titel übergeben
+                        "titel": matched["titel"],
                         "desc": matched['inhalt'],
                         "kcal": matched["kcal"],
                         "prot": matched["prot"],
@@ -145,7 +145,7 @@ def render_meal_page(title, key, api_key, save_callback):
                     st.session_state["meals"][key] = []
                 
                 st.session_state["meals"][key].append({
-                    "titel": final_titel,   # <--- Hier wird der Titel übergeben
+                    "titel": final_titel,
                     "desc": desc_input,
                     "kcal": cal,
                     "prot": prot,
@@ -165,10 +165,21 @@ def render_meal_page(title, key, api_key, save_callback):
         for idx, item in enumerate(meal_items):
             cols = st.columns([4, 1])
             with cols[0]:
-                titel_str = f"**{item.get('titel', '')}** – " if item.get('titel') else ""
-                st.markdown(f"- {titel_str}({item['kcal']} kcal, {item['prot']}g Protein) | *Gicht: {item.get('gicht_status', 'Grün')}*")
-                if item.get('notiz'):
-                    st.caption(f"Notiz: {item['notiz']}")
+                title_val = item.get('titel', '')
+                kcal_val = item.get('kcal', 0)
+                prot_val = item.get('prot', 0.0)
+                gicht_val = item.get('gicht_status', 'Grün')
+                notiz_val = item.get('notiz', '')
+
+                # Angepasste Beschriftung je nach Kategorie (z.B. Frühstück-Titel)
+                prefix_label = title[:-1] if title.endswith('en') and title != 'Snacks' else title
+                if title == 'Snacks':
+                    prefix_label = 'Snack'
+                
+                st.markdown(f"• **{prefix_label}-Titel : {title_val}**")
+                st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;({kcal_val} kcal, {prot_val}g Protein) | *Gicht: {gicht_val}*")
+                if notiz_val:
+                    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;Notiz: {notiz_val}")
             with cols[1]:
                 if st.button("❌", key=f"del_{key}_{idx}"):
                     meal_items.pop(idx)
