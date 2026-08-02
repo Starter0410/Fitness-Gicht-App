@@ -33,9 +33,8 @@ st.set_page_config(
 today_str = datetime.date.today().isoformat()
 
 # -------------------------------------------------------------------------
-# CACHE LADEN & SPEICHERN (Für die Ansichten auf dem Handy)
+# CACHE LADEN & SPEICHERN (Robuster gemacht)
 # -------------------------------------------------------------------------
-
 
 def load_cache():
     if os.path.exists(CACHE_FILE):
@@ -70,7 +69,6 @@ cached_state = load_cache()
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
 
-
 def get_worst_gicht_status(items):
     if not items:
         return "Grün"
@@ -87,8 +85,8 @@ def get_worst_gicht_status(items):
 
 
 def get_todays_totals():
-    m = st.session_state["meals"]
-    d = st.session_state["drinks"]
+    m = st.session_state.get("meals", {})
+    d = st.session_state.get("drinks", {})
 
     fruehstueck_kcal = sum([item["kcal"] for item in m.get("fruehstueck", [])])
     fruehstueck_prot = sum([item["prot"] for item in m.get("fruehstueck", [])])
@@ -149,81 +147,29 @@ def generate_summary_string():
             all_statuses.append(get_worst_gicht_status(items))
 
     if "Rot" in all_statuses:
-        gicht_part = (
-            "heute war gicht-technisch leider etwas Vorsicht geboten wegen"
-            " purinreicherer Kost,"
-        )
+        gicht_part = "heute war gicht-technisch leider etwas Vorsicht geboten,"
     elif "Gelb" in all_statuses:
         gicht_part = "bei der Gicht hatten wir heute ein solides Mittelfeld,"
     elif all_statuses:
-        gicht_part = (
-            "gicht-technisch war das heute absolut vorbildlich im grünen"
-            " Bereich,"
-        )
+        gicht_part = "gicht-technisch war das heute absolut vorbildlich,"
     else:
-        gicht_part = (
-            "gicht-technisch gab es heute noch keine großen Einträge,"
-        )
+        gicht_part = "gicht-technisch gab es heute noch keine Einträge,"
 
     kcal_diff = total_kcal - target_kcal
     if abs(kcal_diff) <= 150:
-        kcal_part = (
-            f"beim Kalorienziel hast du mit {total_kcal} von {target_kcal} kcal"
-            " eine Punktlandung für die Recomp hingelegt"
-        )
+        kcal_part = f"beim Kalorienziel hast du mit {total_kcal} kcal eine Punktlandung hingelegt"
     elif kcal_diff < 0:
-        kcal_part = (
-            f"du hast mit {total_kcal} kcal ein sauberes Defizit für den"
-            " Fettabbau erreicht"
-        )
+        kcal_part = f"du hast mit {total_kcal} kcal ein sauberes Defizit erreicht"
     else:
-        kcal_part = (
-            f"du warst mit {total_kcal} kcal heute im leichten Überschuss für"
-            " den Muskelaufbau"
-        )
+        kcal_part = f"du warst mit {total_kcal} kcal im leichten Überschuss"
 
     if total_prot >= target_prot:
-        prot_part = (
-            f"und dein Proteinziel mit starken {total_prot}g komplett geknackt!"
-        )
+        prot_part = f"und dein Proteinziel mit {total_prot}g geknackt!"
     else:
-        prot_part = (
-            f"wobei du bei bisher {total_prot}g Protein das Ziel von"
-            f" {target_prot}g noch etwas nach oben schrauben darfst."
-        )
+        prot_part = f"wobei du bei {total_prot}g Protein bist."
 
-    training_active = (
-        (w.get("zirkel_min", 0) > 0)
-        or (w.get("bike_km", 0.0) > 0)
-        or bool(w.get("sonstiges"))
-    )
     steps = meta.get("schritte", 0)
-
-    if training_active and steps >= 8000:
-        move_part = (
-            f"Dazu hast du mit starkem Training und {steps} Schritten richtig"
-            " abgeliefert – weiter so, du bist auf dem perfekten Weg!"
-        )
-    elif training_active:
-        move_part = (
-            f"Das Training hast du durchgezogen, und mit {steps} Schritten war"
-            " das eine runde Sache."
-        )
-    elif steps >= 10000:
-        move_part = (
-            f"Auch ohne formelles Zusatztraining hast du dich mit {steps}"
-            " Schritten extrem gut bewegt – echter Maschinen-Modus!"
-        )
-    elif steps >= 7500:
-        move_part = (
-            f"Mit solider Bewegung von {steps} Schritten hast du deinen Alltag"
-            " gut aktiv gehalten."
-        )
-    else:
-        move_part = (
-            f"Mit {steps} Schritten was es heute etwas ruhiger – aber morgen"
-            " ist ein neuer Tag, um wieder voll anzugreifen!"
-        )
+    move_part = f"Mit {steps} Schritten war das eine runde Sache."
 
     return f"Heute war ein Tag, an dem {gicht_part} {kcal_part} {prot_part} {move_part}"
 
@@ -247,12 +193,24 @@ def format_meal_note(items):
 
 
 def save_current_day_to_excel():
-    m = st.session_state["meals"]
-    d = st.session_state["drinks"]
-    w = st.session_state["workout"]
-    meta = st.session_state["daily_meta"]
+    m = st.session_state.get("meals", {})
+    d = st.session_state.get("drinks", {})
+    w = st.session_state.get("workout", {})
+    meta = st.session_state.get("daily_meta", {})
 
     totals_kcal, totals_prot = get_todays_totals()
+    
+    # NUR speichern, wenn auch wirklich Daten vorhanden sind (verhindert leere Startzeilen)
+    has_data = (
+        totals_kcal > 0 
+        or totals_prot > 0 
+        or meta.get("gewicht", 0) > 0 
+        or meta.get("schritte", 0) > 0
+        or any(m.get(k) for k in ["fruehstueck", "mittagessen", "abendessen", "snacks"])
+    )
+    if not has_data:
+        return
+
     target_kcal = 2150
     defizit_ueberschuss = totals_kcal - target_kcal
 
@@ -269,11 +227,9 @@ def save_current_day_to_excel():
 
     new_row = {
         "Datum": str(date.today()),
-        "KG": meta["gewicht"],
-        "KFA": f"{meta['kfa']}%"
-        if isinstance(meta["kfa"], (int, float))
-        else meta["kfa"],
-        "Skel.Musk": meta["skel_musk"],
+        "KG": meta.get("gewicht", 0),
+        "KFA": f"{meta['kfa']}%" if isinstance(meta.get("kfa"), (int, float)) else meta.get("kfa", 0),
+        "Skel.Musk": meta.get("skel_musk", 0),
         "KCAL": totals_kcal,
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
@@ -294,23 +250,26 @@ def save_current_day_to_excel():
         "Kaffe": d.get("kaffee", 0),
         "Whey": d.get("whey_scoops", 0),
         "Getränke-Sonstige": d.get("sonstiges_txt", ""),
-        "Schritte": meta["schritte"],
+        "Schritte": meta.get("schritte", 0),
         "Training": w.get("zirkel_min", 0),
         "Fahrrad (km)": w.get("bike_km", 0.0),
         "Training-Sonstiges": w.get("sonstiges", ""),
         "Notiz11 Training": w.get("notiz", ""),
-        "Notiz12 Tageszusammenfassung": meta["notizen"],
+        "Notiz12 Tageszusammenfassung": meta.get("notizen", ""),
         "Gicht Status": overall_gicht,
     }
 
     try:
-        df = pd.read_excel(EXCEL_FILE)
-        if not df.empty and "Datum" in df.columns:
-            df = df[df["Datum"] != str(date.today())]
-        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    except FileNotFoundError:
-        df = pd.DataFrame([new_row])
-    df.to_excel(EXCEL_FILE, index=False)
+        if os.path.exists(EXCEL_FILE):
+            df = pd.read_excel(EXCEL_FILE)
+            if not df.empty and "Datum" in df.columns:
+                df = df[df["Datum"] != str(date.today())]
+            df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        else:
+            df = pd.DataFrame([new_row])
+        df.to_excel(EXCEL_FILE, index=False)
+    except Exception:
+        pass
 
 
 def clear_todays_data():
@@ -362,7 +321,7 @@ def clear_todays_data():
 
 
 # -------------------------------------------------------------------------
-# SESSION STATE INITIALISIERUNG (Mit Cache-Wiederherstellung)
+# SESSION STATE INITIALISIERUNG
 # -------------------------------------------------------------------------
 if "nav_tab" not in st.session_state:
     st.session_state["nav_tab"] = "🏠 Startseite"
@@ -370,78 +329,41 @@ if "nav_tab" not in st.session_state:
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
-# 1. Meals aus Cache laden (erzwingen, falls noch nicht im State oder leer)
-if "meals" not in st.session_state or not st.session_state["meals"].get("fruehstueck") and cached_state and cached_state.get("meals"):
-    if cached_state and cached_state.get("meals"):
-        st.session_state["meals"] = cached_state["meals"]
-    else:
-        st.session_state["meals"] = {
-            "fruehstueck": [],
-            "mittagessen": [],
-            "abendessen": [],
-            "snacks": [],
-        }
-
+# Zuverlässiges Laden aus dem Cache beim Start
 if "meals" not in st.session_state:
-    st.session_state["meals"] = {
-        "fruehstueck": [],
-        "mittagessen": [],
-        "abendessen": [],
-        "snacks": [],
+    st.session_state["meals"] = cached_state.get("meals", {
+        "fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []
+    }) if cached_state else {
+        "fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []
     }
-elif cached_state and cached_state.get("meals") and all(len(st.session_state["meals"].get(k, [])) == 0 for k in ["fruehstueck", "mittagessen", "abendessen", "snacks"]):
-    st.session_state["meals"] = cached_state["meals"]
 
-# 2. Drinks aus Cache laden
 if "drinks" not in st.session_state:
-    if cached_state and cached_state.get("drinks"):
-        st.session_state["drinks"] = cached_state["drinks"]
-    else:
-        st.session_state["drinks"] = {
-            "wasser_soda": 0,
-            "kaffee": 0,
-            "whey_scoops": 0,
-            "redbull": 0,
-            "sonstiges_txt": "",
-            "sonstiges_kcal": 0,
-            "sonstiges_prot": 0,
-        }
-elif cached_state and cached_state.get("drinks") and st.session_state["drinks"].get("wasser_soda", 0) == 0 and st.session_state["drinks"].get("whey_scoops", 0) == 0:
-    st.session_state["drinks"] = cached_state["drinks"]
+    st.session_state["drinks"] = cached_state.get("drinks", {
+        "wasser_soda": 0, "kaffee": 0, "whey_scoops": 0, "redbull": 0,
+        "sonstiges_txt": "", "sonstiges_kcal": 0, "sonstiges_prot": 0
+    }) if cached_state else {
+        "wasser_soda": 0, "kaffee": 0, "whey_scoops": 0, "redbull": 0,
+        "sonstiges_txt": "", "sonstiges_kcal": 0, "sonstiges_prot": 0
+    }
 
-# 3. Daily Meta aus Cache laden
 if "daily_meta" not in st.session_state:
-    if cached_state and cached_state.get("daily_meta"):
-        st.session_state["daily_meta"] = cached_state["daily_meta"]
-    else:
-        st.session_state["daily_meta"] = {
-            "gewicht": 0.0,
-            "kfa": 0.0,
-            "skel_musk": 0.0,
-            "schritte": 0,
-            "notizen": "",
-        }
-elif cached_state and cached_state.get("daily_meta") and st.session_state["daily_meta"].get("gewicht", 0.0) == 0.0:
-    st.session_state["daily_meta"] = cached_state["daily_meta"]
+    st.session_state["daily_meta"] = cached_state.get("daily_meta", {
+        "gewicht": 0.0, "kfa": 0.0, "skel_musk": 0.0, "schritte": 0, "notizen": ""
+    }) if cached_state else {
+        "gewicht": 0.0, "kfa": 0.0, "skel_musk": 0.0, "schritte": 0, "notizen": ""
+    }
 
-# 4. Workout aus Cache laden
 if "workout" not in st.session_state:
-    if cached_state and cached_state.get("workout"):
-        st.session_state["workout"] = cached_state["workout"]
-    else:
-        st.session_state["workout"] = {
-            "schritte": 8000,
-            "zirkel_min": 0,
-            "zirkel_details": "",
-            "bike_km": 0.0,
-            "bike_modus": "",
-            "sonstiges": "",
-            "notiz": "",
-        }
+    st.session_state["workout"] = cached_state.get("workout", {
+        "schritte": 8000, "zirkel_min": 0, "zirkel_details": "",
+        "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""
+    }) if cached_state else {
+        "schritte": 8000, "zirkel_min": 0, "zirkel_details": "",
+        "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""
+    }
 
-# Automatisches Sichern im Cache & Excel bei jedem Seitenaufruf
+# Automatisches Sichern im Cache
 save_cache()
-save_current_day_to_excel()
 
 # -------------------------------------------------------------------------
 # HAUPTSEITE & NAVIGATION
@@ -648,16 +570,16 @@ elif tab == "Abschluss":
     st.markdown("---")
     meta = st.session_state["daily_meta"]
     meta["gewicht"] = st.number_input(
-        "Heutiges Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1
+        "Heutiges Körpergewicht (kg)", value=float(meta.get("gewicht", 0.0)), step=0.1
     )
     meta["kfa"] = st.number_input(
-        "Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1
+        "Körperfettanteil KFA (%)", value=float(meta.get("kfa", 0.0)), step=0.1
     )
     meta["skel_musk"] = st.number_input(
-        "Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1
+        "Skelettmuskulatur (kg)", value=float(meta.get("skel_musk", 0.0)), step=0.1
     )
     meta["schritte"] = st.number_input(
-        "Heutige Schritte", value=int(meta["schritte"]), step=500
+        "Heutige Schritte", value=int(meta.get("schritte", 0)), step=500
     )
 
     col_btn1, col_btn2 = st.columns(2)
@@ -676,7 +598,7 @@ elif tab == "Abschluss":
 
     meta["notizen"] = st.text_area(
         "Tagesnotizen / Motivations-Feedback (wird in Excel gespeichert)",
-        value=meta["notizen"],
+        value=meta.get("notizen", ""),
     )
 
     st.info(f"**Bisherige Tagesbilanz:** {total_kcal} kcal | {total_prot} g Protein")
