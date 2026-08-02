@@ -150,11 +150,10 @@ def clear_todays_data():
         if wk in st.session_state:
             del st.session_state[wk]
             
-    # Auch den Zwischenspeicher auf dem Server löschen/zurücksetzen
     save_draft()
 
 def save_current_day_to_excel():
-    save_draft() # Vor dem Export auch sichern
+    save_draft()
     m = st.session_state["meals"]
     d = st.session_state["drinks"]
     meta = st.session_state["daily_meta"]
@@ -195,7 +194,6 @@ def save_current_day_to_excel():
 # -------------------------------------------------------------------------
 st.set_page_config(page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered")
 
-# Jedes Mal, wenn sich etwas im State ändert, Entwurf im Hintergrund sichern
 save_draft()
 
 with st.sidebar:
@@ -243,6 +241,12 @@ if tab == "🏠 Startseite":
     if st.button("🥤 Getränke-Zähler", use_container_width=True):
         st.session_state["nav_tab"] = "Getränke"
         st.rerun()
+    if st.button("⚖️ Waage & KI-Auslese", use_container_width=True):
+        st.session_state["nav_tab"] = "Waage"
+        st.rerun()
+    if st.button("🏁 Tagesabschluss & Kontrollansicht", use_container_width=True):
+        st.session_state["nav_tab"] = "Tagesabschluss"
+        st.rerun()
 
 elif tab == "Frühstück":
     render_meal_page("Frühstück", "fruehstueck", st.session_state["api_key"], save_current_day_to_excel)
@@ -258,3 +262,22 @@ elif tab == "Snacks":
 
 elif tab == "Getränke":
     render_drinks_page(save_current_day_to_excel)
+
+elif tab == "Waage":
+    st.title("⚖️ Waage & KI-Auslese")
+    st.write("Hier kannst du das Foto deiner Waage hochladen oder die Werte manuell erfassen.")
+    meta = st.session_state["daily_meta"]
+    meta["gewicht"] = st.number_input("Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1)
+    meta["kfa"] = st.number_input("Körperfettanteil KFA (%)", value=float(meta["kfa"]), step=0.1)
+    meta["skel_musk"] = st.number_input("Skelettmuskulatur (kg)", value=float(meta["skel_musk"]), step=0.1)
+    if st.button("💾 Werte speichern"):
+        save_draft()
+        st.success("Waage-Daten gespeichert!")
+
+elif tab == "Tagesabschluss":
+    st.title("🏁 Tagesabschluss & Kontrollansicht")
+    total_kcal, total_prot = get_todays_totals()
+    st.metric("Gesamtbilanz", f"{total_kcal} kcal", f"{total_prot} g Protein")
+    if st.button("🚀 In Excel speichern & Download vorbereiten"):
+        save_current_day_to_excel()
+        st.success("Erfolgreich in die Excel-Tabelle geschrieben!")
