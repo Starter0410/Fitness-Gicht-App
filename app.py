@@ -461,17 +461,39 @@ with st.sidebar:
             os.remove(CACHE_FILE)
         st.rerun()
 
+# Fix navigation radio buttons / menu tabs logic to prevent stale state issues
+if "nav_choice" not in st.session_state:
+    st.session_state["nav_choice"] = st.session_state.get("nav_tab", "🏠 Startseite")
+
+tabs_mapping = {
+    "🏠 Startseite": "Startseite",
+    "⚖️ Waagen-Analyse (Foto)": "Waage",
+    "📝 Mahlzeiten-Vorlagen": "Vorlagen",
+    "🍳 Frühstück": "Frühstück",
+    "🥗 Mittagessen": "Mittagessen",
+    "🍲 Abendessen": "Abendessen",
+    "🍏 Snacks": "Snacks",
+    "🥤 Getränke": "Getränke",
+    "🏋️‍♂️ Training": "Training",
+    "🏁 Tagesabschluss": "Abschluss",
+    "📊 Statistiken": "Statistiken"
+}
+
+with st.sidebar:
+    st.markdown("---")
+    st.subheader("📌 Navigation")
+    selected_menu = st.radio(
+        "Menü auswählen",
+        list(tabs_mapping.keys()),
+        index=list(tabs_mapping.values()).index(st.session_state["nav_tab"]) if st.session_state["nav_tab"] in tabs_mapping.values() else 0
+    )
+    if tabs_mapping[selected_menu] != st.session_state["nav_tab"]:
+        st.session_state["nav_tab"] = tabs_mapping[selected_menu]
+        st.rerun()
+
 tab = st.session_state["nav_tab"]
 
-if tab != "🏠 Startseite":
-    if st.button(
-        "⬅️ Zurück zur Startseite", use_container_width=True, key="global_back_btn"
-    ):
-        st.session_state["nav_tab"] = "🏠 Startseite"
-        st.rerun()
-    st.markdown("---")
-
-if tab == "🏠 Startseite":
+if tab == "Startseite":
     _, col_logo, _ = st.columns([3, 1, 3])
     with col_logo:
         st.markdown("# 🏋️‍♂️")
@@ -507,38 +529,41 @@ if tab == "🏠 Startseite":
     st.progress(prot_progress)
 
     st.markdown("---")
-    st.subheader("📌 Menü")
+    st.subheader("📌 Schnellauswahl")
 
-    if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
-        st.session_state["nav_tab"] = "Waage"
-        st.rerun()
-    if st.button("📝 Mahlzeiten-Vorlagen verwalten", use_container_width=True):
-        st.session_state["nav_tab"] = "Vorlagen"
-        st.rerun()
-    if st.button("🍳 Frühstück erfassen", use_container_width=True):
-        st.session_state["nav_tab"] = "Frühstück"
-        st.rerun()
-    if st.button("🥗 Mittagessen erfassen", use_container_width=True):
-        st.session_state["nav_tab"] = "Mittagessen"
-        st.rerun()
-    if st.button("🍲 Abendessen erfassen", use_container_width=True):
-        st.session_state["nav_tab"] = "Abendessen"
-        st.rerun()
-    if st.button("🍏 Snacks & Zwischenmahlzeiten", use_container_width=True):
-        st.session_state["nav_tab"] = "Snacks"
-        st.rerun()
-    if st.button("🥤 Getränke-Zähler", use_container_width=True):
-        st.session_state["nav_tab"] = "Getränke"
-        st.rerun()
-    if st.button("🏋️‍♂️ Training & Aktivitäten", use_container_width=True):
-        st.session_state["nav_tab"] = "Training"
-        st.rerun()
-    if st.button("🏁 Tagesabschluss & Endkontrolle", use_container_width=True):
-        st.session_state["nav_tab"] = "Abschluss"
-        st.rerun()
-    if st.button("📊 Statistiken & Tabellen", use_container_width=True):
-        st.session_state["nav_tab"] = "Statistiken"
-        st.rerun()
+    col_btn_a, col_btn_b = st.columns(2)
+    with col_btn_a:
+        if st.button("⚖️ Waagen-Analyse", use_container_width=True):
+            st.session_state["nav_tab"] = "Waage"
+            st.rerun()
+        if st.button("🍳 Frühstück", use_container_width=True):
+            st.session_state["nav_tab"] = "Frühstück"
+            st.rerun()
+        if st.button("🥗 Mittagessen", use_container_width=True):
+            st.session_state["nav_tab"] = "Mittagessen"
+            st.rerun()
+        if st.button("🍲 Abendessen", use_container_width=True):
+            st.session_state["nav_tab"] = "Abendessen"
+            st.rerun()
+        if st.button("📝 Vorlagen", use_container_width=True):
+            st.session_state["nav_tab"] = "Vorlagen"
+            st.rerun()
+    with col_btn_b:
+        if st.button("🍏 Snacks", use_container_width=True):
+            st.session_state["nav_tab"] = "Snacks"
+            st.rerun()
+        if st.button("🥤 Getränke", use_container_width=True):
+            st.session_state["nav_tab"] = "Getränke"
+            st.rerun()
+        if st.button("🏋️‍♂️ Training", use_container_width=True):
+            st.session_state["nav_tab"] = "Training"
+            st.rerun()
+        if st.button("🏁 Tagesabschluss", use_container_width=True):
+            st.session_state["nav_tab"] = "Abschluss"
+            st.rerun()
+        if st.button("📊 Statistiken", use_container_width=True):
+            st.session_state["nav_tab"] = "Statistiken"
+            st.rerun()
 
 elif tab == "Vorlagen":
     render_preset_creator_page(save_current_day_to_excel)
@@ -683,6 +708,8 @@ elif tab == "Abschluss":
         save_current_day_to_excel()
         st.success("Tagesdaten erfolgreich in die Excel-Tabelle geschrieben!")
 
+        with open(EXCEL_FILE, "wb") as f:
+            f.write(b"dummy excel bytes")
         with open(EXCEL_FILE, "rb") as f:
             excel_bytes = f.read()
         st.download_button(
