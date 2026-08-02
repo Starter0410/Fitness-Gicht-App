@@ -101,8 +101,8 @@ def render_meal_page(title, key, api_key, save_callback):
                         st.session_state["meals"][key] = []
                     
                     st.session_state["meals"][key].append({
-                        "titel": matched["titel"],  # <--- Titel aus Vorlage übernehmen
-                        "desc": matched['inhalt'] if matched['inhalt'] else matched['titel'],
+                        "titel": matched["titel"],  # <--- Korrekt als Titel übergeben
+                        "desc": matched['inhalt'],
                         "kcal": matched["kcal"],
                         "prot": matched["prot"],
                         "notiz": matched['inhalt'],
@@ -124,9 +124,9 @@ def render_meal_page(title, key, api_key, save_callback):
                 pass
         st.image(uploaded_images, width=150)
 
-    # --- NEU: EINGABEFELD FÜR TITEL BEI MANUELLER EINGABE ---
-    titel_input = st.text_input(f"Mahlzeiten-Titel (z. B. Hähnchen-Bowl) [{title}]", key=f"titel_input_{key}")
-    desc_input = st.text_input(f"Beschreibung / Inhalt für {title}", key=f"desc_{key}")
+    # Eingabefeld für den manuellen Titel
+    titel_input = st.text_input(f"Mahlzeiten-Titel (z. B. Bio Banane)", key=f"titel_{key}")
+    desc_input = st.text_input(f"Beschreibung / Notiz für {title}", key=f"desc_{key}")
 
     if st.button(f"✨ {title} per KI analysieren & eintragen", key=f"ai_btn_{key}"):
         if uploaded_images or desc_input or titel_input:
@@ -138,15 +138,15 @@ def render_meal_page(title, key, api_key, save_callback):
                 notiz = ai_result.get("mahlzeit_notiz") or ai_result.get("beschreibung", "KI-Analyse")
                 gicht = ai_result.get("gicht_bewertung", "grün").capitalize()
                 
-                # Wenn KI einen Titel liefert oder manuell einer angegeben wurde
-                ai_titel = ai_result.get("titel") or titel_input or title
+                # Titel Prio: Manuell eingegebener Titel > KI-Titel > Standard-Kategorie
+                final_titel = titel_input if titel_input else ai_result.get("titel", title)
                 
                 if key not in st.session_state["meals"]:
                     st.session_state["meals"][key] = []
                 
                 st.session_state["meals"][key].append({
-                    "titel": ai_titel,
-                    "desc": desc_input if desc_input else notiz,
+                    "titel": final_titel,   # <--- Hier wird der Titel übergeben
+                    "desc": desc_input,
                     "kcal": cal,
                     "prot": prot,
                     "notiz": notiz,
@@ -157,25 +157,6 @@ def render_meal_page(title, key, api_key, save_callback):
         else:
             st.warning("Bitte lade mindestens ein Bild hoch oder gib einen Titel/Beschreibung ein.")
 
-    # Optionaler Button für reine manuelle Eingabe ohne KI (falls gewünscht)
-    if st.button(f"💾 Manuell eintragen (ohne KI)", key=f"manual_btn_{key}"):
-        if titel_input.strip() or desc_input.strip():
-            if key not in st.session_state["meals"]:
-                st.session_state["meals"][key] = []
-            st.session_state["meals"][key].append({
-                "titel": titel_input.strip() if titel_input.strip() else title,
-                "desc": desc_input.strip(),
-                "kcal": 0,  # Kann angepasst werden oder Standardwerte nutzen
-                "prot": 0.0,
-                "notiz": desc_input.strip(),
-                "gicht_status": "Grün"
-            })
-            save_callback()
-            st.success("Mahlzeit manuell hinzugefügt!")
-            st.rerun()
-        else:
-            st.warning("Bitte gib mindestens einen Titel oder eine Beschreibung an.")
-
     st.markdown("---")
     st.markdown(f"**Bisherige Einträge für {title}:**")
     
@@ -184,8 +165,8 @@ def render_meal_page(title, key, api_key, save_callback):
         for idx, item in enumerate(meal_items):
             cols = st.columns([4, 1])
             with cols[0]:
-                item_title = f"**[{item.get('titel')}]** " if item.get('titel') else ""
-                st.markdown(f"- {item_title}**{item['desc']}** ({item['kcal']} kcal, {item['prot']}g Protein) | *Gicht: {item.get('gicht_status', 'Grün')}*")
+                titel_str = f"**{item.get('titel', '')}** – " if item.get('titel') else ""
+                st.markdown(f"- {titel_str}({item['kcal']} kcal, {item['prot']}g Protein) | *Gicht: {item.get('gicht_status', 'Grün')}*")
                 if item.get('notiz'):
                     st.caption(f"Notiz: {item['notiz']}")
             with cols[1]:
