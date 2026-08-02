@@ -175,15 +175,15 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Zieht den Titel zuverlässig aus 'desc' (wo views_meals ihn ablegt) oder anderen Feldern."""
+    """Zieht den Titel jetzt absolut sauber und primär aus dem 'titel'-Feld."""
     if not items:
         return ""
     titles = []
     for item in items:
         title = (
-            item.get("desc") 
-            or item.get("titel") 
+            item.get("titel") 
             or item.get("name") 
+            or item.get("desc") 
             or item.get("text", "")
         ).strip()
         
@@ -599,7 +599,7 @@ elif tab == "Abschluss":
                 )
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
-                    title_val = (itm.get("desc") or itm.get("titel") or itm.get("name") or "").strip()
+                    title_val = (itm.get("titel") or itm.get("desc") or "").strip()
                     title_str = f" **{title_val}**" if title_val else ""
                     st.markdown(
                         f"-{title_str} ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
