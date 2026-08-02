@@ -175,19 +175,23 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Gibt AUSSCHLIESSLICH den Mahlzeiten-Titel für die Excel-Hauptspalte aus."""
+    """Gibt den eingegebenen Titel für die Excel-Hauptspalte aus."""
     if not items:
         return ""
     titles = []
     for item in items:
+        # Nimm primär den Titel, falls vorhanden
         title = item.get("titel", "").strip()
+        if not title:
+            # Fallback auf Beschreibung, falls kein Titel gesetzt wurde
+            title = item.get("desc", "").strip()
         if title:
             titles.append(title)
     return " | ".join(titles) if titles else ""
 
 
 def format_meal_note(items):
-    """Gibt AUSSCHLIESSLICH die KI-Notiz / Antwort für die Excel-Notizspalte aus."""
+    """Gibt AUSSCHLIESSLICH die Notiz für die Notizspalte aus."""
     if not items:
         return ""
     notes = [item.get("notiz", "").strip() for item in items if item.get("notiz", "").strip()]
@@ -228,14 +232,14 @@ def save_current_day_to_excel():
 
     new_row = {
         "Datum": str(date.today()),
-        "KG": meta.get("gewicht", 0),
-        "KFA": f"{meta['kfa']}%" if isinstance(meta.get("kfa"), (int, float)) else meta.get("kfa", 0),
-        "Skel.Musk": meta.get("skel_musk", 0),
+        "KG": meta.get("gewicht", 0) if meta.get("gewicht") else 0,
+        "KFA": f"{meta['kfa']}%" if isinstance(meta.get("kfa"), (int, float)) and meta.get("kfa", 0) > 0 else "0%",
+        "Skel.Musk": meta.get("skel_musk", 0) if meta.get("skel_musk") else 0,
         "KCAL": totals_kcal,
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
         
-        # Frühstück (Titel in Hauptspalte, KI-Notiz in Notizspalte)
+        # Frühstück
         "Frühstück": format_meal_column(m.get("fruehstueck", [])),
         "Frühstück-Ampel": get_worst_gicht_status(m.get("fruehstueck", [])),
         "Frühstück-Notiz": format_meal_note(m.get("fruehstueck", [])),
@@ -356,14 +360,14 @@ else:
                         ampel_col_name = f"{col_name}-Ampel" if col_name != "Snacks" else "Snack-Ampel"
                         f_ampel = today_row.iloc[0].get(ampel_col_name, "Grün")
                         
-                        if pd.notna(f_val) and str(f_val).strip() != "":
+                        if pd.notna(f_val) and str(f_val).strip() != "" and str(f_val).strip().lower() != "none":
                             initial_meals[cat_key].append({
-                                "titel": str(f_val) if pd.notna(f_val) else "",
+                                "titel": str(f_val),
                                 "desc": "",
-                                "kcal": int(today_row.iloc[0].get("KCAL", 0)),
-                                "prot": float(today_row.iloc[0].get("Prot", 0)),
-                                "gicht_status": str(f_ampel),
-                                "notiz": str(f_note) if pd.notna(f_note) else ""
+                                "kcal": int(today_row.iloc[0].get("KCAL", 0)) if pd.notna(today_row.iloc[0].get("KCAL")) else 0,
+                                "prot": float(today_row.iloc[0].get("Prot", 0)) if pd.notna(today_row.iloc[0].get("Prot")) else 0.0,
+                                "gicht_status": str(f_ampel) if pd.notna(f_ampel) else "Grün",
+                                "notiz": str(f_note) if pd.notna(f_note) and str(f_note).strip().lower() != "none" else ""
                             })
         except Exception:
             pass
@@ -391,8 +395,8 @@ if "daily_meta" not in st.session_state:
             df_ex = pd.read_excel(EXCEL_FILE)
             today_row = df_ex[df_ex["Datum"] == str(date.today())]
             if not today_row.empty:
-                meta_init["gewicht"] = float(today_row.iloc[0].get("KG", 0.0))
-                meta_init["schritte"] = int(today_row.iloc[0].get("Schritte", 0))
+                meta_init["gewicht"] = float(today_row.iloc[0].get("KG", 0.0)) if pd.notna(today_row.iloc[0].get("KG")) else 0.0
+                meta_init["schritte"] = int(today_row.iloc[0].get("Schritte", 0)) if pd.notna(today_row.iloc[0].get("Schritte")) else 0
         except Exception:
             pass
     st.session_state["daily_meta"] = meta_init
