@@ -175,20 +175,20 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
+    """Gibt den Titel (oder Beschreibung falls kein Titel da ist) für die Excel-Hauptspalte aus."""
     if not items:
         return ""
     formatted_parts = []
     for item in items:
         title = item.get("titel", "").strip()
         desc = item.get("desc", "").strip()
-        kcal = item.get("kcal", 0)
-        prot = item.get("prot", 0)
         
-        if title and title != desc:
-            formatted_parts.append(f"[{title}] {desc} ({kcal} kcal, {prot}g)")
-        else:
-            formatted_parts.append(f"{desc} ({kcal} kcal, {prot}g)")
-    return "; ".join(formatted_parts)
+        # Falls ein Titel da ist, nutzen wir diesen primär für die Hauptspalte
+        if title:
+            formatted_parts.append(title)
+        elif desc:
+            formatted_parts.append(desc)
+    return " | ".join(formatted_parts)
 
 
 def format_meal_title_column(items):
@@ -611,9 +611,9 @@ elif tab == "Abschluss":
                 )
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
-                    title_str = f" **[{itm.get('titel', '')}]**" if itm.get('titel') else ""
+                    title_str = f" **{itm.get('titel', '')}**" if itm.get('titel') else f" **{itm.get('desc', '')}**"
                     st.markdown(
-                        f"-{title_str} **{itm['desc']}** ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
+                        f"-{title_str} ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
                     )
                     if itm.get("notiz"):
                         st.caption(f"  📝 Notiz: {itm['notiz']}")
