@@ -7,7 +7,7 @@ from views_meals import render_meal_page, render_snacks_page, render_drinks_page
 
 # --- SEITENKONFIGURATION ---
 st.set_page_config(
-    page_title="Project Zeal - Tageserfassung",
+    page_title="Project Zeal - built differnt",
     page_icon="⚡",
     layout="wide"
 )
@@ -30,6 +30,14 @@ if "drinks" not in st.session_state:
         "sonstiges_txt": "",
         "sonstiges_kcal": 0,
         "sonstiges_prot": 0.0
+    }
+
+if "body_data" not in st.session_state:
+    st.session_state["body_data"] = {
+        "weight": 75.0,
+        "body_fat": 15.0,
+        "muscle": 60.0,
+        "steps": 8000
     }
 
 EXCEL_FILE = "tagesprotokoll.xlsx"
@@ -56,13 +64,15 @@ def format_meal_column(items):
 
 # --- SEITEN-NAVIGATION (SIDEBAR) ---
 st.sidebar.title("⚡ Project Zeal")
+st.sidebar.caption("built differnt - a new area")
 st.sidebar.markdown("---")
+
 page = st.sidebar.radio(
     "Navigation", 
-    ["Frühstück", "Mittagessen", "Abendessen", "Snacks", "Getränke", "Vorlagen verwalten", "Tagesabschluss & Kontrolle"]
+    ["Frühstück", "Mittagessen", "Abendessen", "Snacks", "Getränke", "Waage & Körper", "Vorlagen verwalten", "Tagesabschluss & Kontrolle"]
 )
 
-# Sicherer Zugriff auf Streamlit Secrets (abgesichert gegen AttributeError)
+# Sicherer Zugriff auf Streamlit Secrets
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 except Exception:
@@ -84,15 +94,36 @@ elif page == "Snacks":
 elif page == "Getränke":
     render_drinks_page(save_to_excel)
 
+elif page == "Waage & Körper":
+    st.markdown("### ⚖️ Waage & Körperwerte")
+    b = st.session_state["body_data"]
+    b["weight"] = st.number_input("Körpergewicht (kg)", value=float(b["weight"]), step=0.1)
+    b["body_fat"] = st.number_input("Körperfett (%)", value=float(b["body_fat"]), step=0.1)
+    b["muscle"] = st.number_input("Muskelmasse (kg)", value=float(b["muscle"]), step=0.1)
+    b["steps"] = st.number_input("Schritte des Tages", value=int(b["steps"]), step=500)
+    
+    if st.button("💾 Körperwerte speichern"):
+        save_to_excel()
+        st.success("Körperwerte erfolgreich aktualisiert!")
+
 elif page == "Vorlagen verwalten":
     render_preset_creator_page(save_to_excel)
 
 elif page == "Tagesabschluss & Kontrolle":
     st.markdown("### 🔍 Tagesabschluss & Kontrollansicht")
     
+    # Statistiken-Metriken oben
+    b = st.session_state["body_data"]
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Gewicht", f"{b['weight']} kg")
+    col2.metric("Körperfett", f"{b['body_fat']} %")
+    col3.metric("Muskelmasse", f"{b['muscle']} kg")
+    col4.metric("Schritte", f"{b['steps']}")
+    
+    st.markdown("---")
+    
     with st.expander("📊 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status (Kontrolle)", expanded=True):
         
-        # Gesamtkalorien und Protein berechnen
         total_kcal = 0
         total_prot = 0.0
         
@@ -101,7 +132,6 @@ elif page == "Tagesabschluss & Kontrolle":
                 total_kcal += item.get("kcal", 0)
                 total_prot += float(item.get("prot", 0.0))
         
-        # Getränke Kalorien/Protein einrechnen
         d = st.session_state["drinks"]
         total_kcal += int(d.get("sonstiges_kcal", 0))
         total_prot += float(d.get("sonstiges_prot", 0.0))
@@ -109,7 +139,6 @@ elif page == "Tagesabschluss & Kontrolle":
         st.markdown(f"**Gesamtbilanz:** 🔥 **{total_kcal} kcal** | 🥩 **{total_prot:.1f} g Protein**")
         st.markdown("---")
         
-        # Mahlzeiten nach Kategorien auflisten
         categories = [
             ("Frühstück", "breakfast"),
             ("Mittagessen", "lunch"),
@@ -140,10 +169,9 @@ elif page == "Tagesabschluss & Kontrolle":
             else:
                 st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;*Keine Einträge*")
             
-            st.write("") # Kleiner Abstand
+            st.write("")
             
         st.markdown("---")
-        # Getränke Übersicht
         st.markdown(f"🥤 **Getränke:** Wasser/Soda: {d['wasser_soda']}L | Kaffee: {d['kaffee']} Tassen | Whey: {d['whey_scoops']} Scoops | Energy: {d['redbull']} Dosen")
         if d['sonstiges_txt']:
             st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;Sonstiges: {d['sonstiges_txt']} ({d['sonstiges_kcal']} kcal, {d['sonstiges_prot']}g Protein)")
