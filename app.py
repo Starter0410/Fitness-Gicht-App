@@ -336,11 +336,11 @@ if tab == "🏠 Startseite":
     if st.button("🏋️‍♂️ Training & Aktivitäten", use_container_width=True):
         st.session_state["nav_tab"] = "Training"
         st.rerun()
-    if st.button("📊 Statistiken & Tabellen", use_container_width=True):
-        st.session_state["nav_tab"] = "Statistiken"
-        st.rerun()
     if st.button("🏁 Tagesabschluss & Endkontrolle", use_container_width=True):
         st.session_state["nav_tab"] = "Abschluss"
+        st.rerun()
+    if st.button("📊 Statistiken & Tabellen", use_container_width=True):
+        st.session_state["nav_tab"] = "Statistiken"
         st.rerun()
 
 elif tab == "Frühstück":
