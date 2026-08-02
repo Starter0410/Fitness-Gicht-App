@@ -180,7 +180,6 @@ def format_meal_column(items):
         return ""
     titles = []
     for item in items:
-        # Hier priorisieren wir 'titel', damit "1 Bio Banane" exakt so gezogen wird
         title = (
             item.get("titel") 
             or item.get("name") 
@@ -188,7 +187,8 @@ def format_meal_column(items):
             or item.get("text", "")
         ).strip()
         
-        if title:
+        # "None" oder leere Strings konsequent herausfiltern
+        if title and title.lower() != "none":
             titles.append(title)
     return " | ".join(titles) if titles else ""
 
