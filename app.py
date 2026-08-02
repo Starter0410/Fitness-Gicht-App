@@ -175,11 +175,12 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Zieht den Titel jetzt absolut sauber und primär aus dem 'titel'-Feld."""
+    """Zieht für die Excel-Tabelle primär exakt den reinen 'titel' heraus."""
     if not items:
         return ""
     titles = []
     for item in items:
+        # Hier priorisieren wir 'titel', damit "1 Bio Banane" exakt so gezogen wird
         title = (
             item.get("titel") 
             or item.get("name") 
