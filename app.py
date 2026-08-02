@@ -23,7 +23,7 @@ EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
 CACHE_FILE = "daily_cache.json"
 
 # -------------------------------------------------------------------------
-# SAUBERE STATISTIK-SEITENFUNKTION (Heutiger Tag bleibt immer sichtbar)
+# STATISTIK-SEITE (Mit Diagrammen, sauberem Layout & klugem Filter)
 # -------------------------------------------------------------------------
 def render_statistik_page_clean(excel_file):
     st.subheader("📊 Statistiken & Historie")
@@ -37,30 +37,61 @@ def render_statistik_page_clean(excel_file):
             st.info("Die Excel-Datei ist leer.")
             return
 
-        # 1. Datum in reinen String (YYYY-MM-DD) umwandeln, um das "00:00:00" zu entfernen
+        # 1. Datum aufbereiten
         if "Datum" in df.columns:
             df["Datum"] = pd.to_datetime(df["Datum"], errors="coerce").dt.strftime("%Y-%m-%d")
 
-        # 2. Leerstellen/None durch leere Strings ersetzen für eine saubere Optik
         df = df.fillna("")
 
-        # 3. Intelligentes Filtern:
-        # - Vergangene Tage mit 0 kcal und 0 kg werden ausgeblendet.
-        # - Der HEUTIGE Tag bleibt IMMER erhalten, damit du ihn tagsüber befüllen kannst.
+        # 2. Intelligentes Filtern (Heutiger Tag bleibt immer da, alte Leertage mit -2200 raus)
         today_str = str(date.today())
         
-        if "KCAL" in df.columns and "KG" in df.columns and "Datum" in df.columns:
+        if "KCAL" in df.columns and "Datum" in df.columns:
             is_today = (df["Datum"] == today_str)
+            # Echte Einträge haben entweder KCAL ungleich 0/leer oder KG ungleich 0/leer und sind kein reines -2200 Defizit
             has_content = (
-                ((df["KCAL"] != 0) & (df["KCAL"] != "")) | 
+                ((df["KCAL"] != 0) & (df["KCAL"] != "") & (df["KCAL"] != -2200)) | 
                 ((df["KG"] != 0) & (df["KG"] != ""))
             )
             df_filtered = df[is_today | has_content]
         else:
             df_filtered = df
 
+        # --- DIAGRAMME WIEDERSTELLEN ---
+        if "Datum" in df.columns:
+            chart_df = df.copy()
+            chart_df["Datum"] = pd.to_datetime(chart_df["Datum"], errors="coerce")
+            chart_df = chart_df.sort_values("Datum").set_index("Datum")
+
+            col_ch1, col_ch2 = st.columns(2)
+            with col_ch1:
+                if "KG" in chart_df.columns:
+                    st.markdown("### ⚖️ Gewichtsentwicklung")
+                    weight_data = chart_df["KG"].replace(0, pd.NA).dropna()
+                    if not weight_data.empty:
+                        st.line_chart(weight_data)
+                    else:
+                    	st.info("Keine Gewichtsdaten vorhanden.")
+            with col_ch2:
+                if "KCAL" in chart_df.columns:
+                    st.markdown("### 🔥 Kalorienverlauf")
+                    kcal_data = chart_df["KCAL"].replace(0, pd.NA).dropna()
+                    # -2200 Werte für den Chart ebenfalls bereinigen
+                    kcal_data = kcal_data[kcal_data != -2200]
+                    if not kcal_data.empty:
+                        st.line_chart(kcal_data)
+                    else:
+                        st.info("Keine Kaloriendaten vorhanden.")
+                        
+        st.markdown("---")
         st.markdown("### 📋 Vollständige Datentabelle (gefiltert)")
-        st.dataframe(df_filtered, use_container_width=True)
+        
+        # Schöneres Layout für die Tabelle
+        st.dataframe(
+            df_filtered,
+            use_container_width=True,
+            hide_index=True
+        )
 
     except Exception as e:
         st.error(f"Fehler beim Laden der Statistiken: {e}")
@@ -295,25 +326,21 @@ def save_current_day_to_excel():
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
         
-        # Frühstück mit Titel & Details
         "Frühstück-Titel": format_meal_title_column(m.get("fruehstueck", [])),
         "Frühstück": format_meal_column(m.get("fruehstueck", [])),
         "Frühstück-Ampel": get_worst_gicht_status(m.get("fruehstueck", [])),
         "Frühstück-Notiz": format_meal_note(m.get("fruehstueck", [])),
         
-        # Mittagessen mit Titel & Details
         "Mittagessen-Titel": format_meal_title_column(m.get("mittagessen", [])),
         "Mittagessen": format_meal_column(m.get("mittagessen", [])),
         "Mittagessen-Ampel": get_worst_gicht_status(m.get("mittagessen", [])),
         "Mittagessen-Notiz": format_meal_note(m.get("mittagessen", [])),
         
-        # Abendessen mit Titel & Details
         "Abendessen-Titel": format_meal_title_column(m.get("abendessen", [])),
         "Abendessen": format_meal_column(m.get("abendessen", [])),
         "Abendessen-Ampel": get_worst_gicht_status(m.get("abendessen", [])),
         "Abendessen-Notiz": format_meal_note(m.get("abendessen", [])),
         
-        # Snacks
         "Snacks": format_meal_column(m.get("snacks", [])),
         "Snack-Ampel": get_worst_gicht_status(m.get("snacks", [])),
         "Snacks-Notiz": format_meal_note(m.get("snacks", [])),
