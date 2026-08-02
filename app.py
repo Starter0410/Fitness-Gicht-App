@@ -175,16 +175,16 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Greift zuverlässig den Titel ab – unabhängig davon, welcher Schlüssel in views_meals genutzt wird."""
+    """Zieht den Titel zuverlässig aus 'desc' (wo views_meals ihn ablegt) oder anderen Feldern."""
     if not items:
         return ""
     titles = []
     for item in items:
         title = (
-            item.get("titel") 
+            item.get("desc") 
+            or item.get("titel") 
             or item.get("name") 
-            or item.get("text") 
-            or item.get("desc", "")
+            or item.get("text", "")
         ).strip()
         
         if title:
@@ -365,7 +365,7 @@ else:
                         if pd.notna(f_val) and str(f_val).strip() != "" and str(f_val).strip().lower() != "none":
                             initial_meals[cat_key].append({
                                 "titel": str(f_val),
-                                "desc": "",
+                                "desc": str(f_val),
                                 "kcal": int(today_row.iloc[0].get("KCAL", 0)) if pd.notna(today_row.iloc[0].get("KCAL")) else 0,
                                 "prot": float(today_row.iloc[0].get("Prot", 0)) if pd.notna(today_row.iloc[0].get("Prot")) else 0.0,
                                 "gicht_status": str(f_ampel) if pd.notna(f_ampel) else "Grün",
@@ -599,8 +599,7 @@ elif tab == "Abschluss":
                 )
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
-                    # Dynamische Titel-Ermittlung auch für die Vorschau
-                    title_val = (itm.get("titel") or itm.get("name") or itm.get("text") or "").strip()
+                    title_val = (itm.get("desc") or itm.get("titel") or itm.get("name") or "").strip()
                     title_str = f" **{title_val}**" if title_val else ""
                     st.markdown(
                         f"-{title_str} ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
