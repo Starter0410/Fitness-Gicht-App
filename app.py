@@ -370,8 +370,8 @@ if "nav_tab" not in st.session_state:
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
-# 1. Meals aus Cache laden
-if "meals" not in st.session_state:
+# 1. Meals aus Cache laden (erzwingen, falls noch nicht im State oder leer)
+if "meals" not in st.session_state or not st.session_state["meals"].get("fruehstueck") and cached_state and cached_state.get("meals"):
     if cached_state and cached_state.get("meals"):
         st.session_state["meals"] = cached_state["meals"]
     else:
@@ -381,6 +381,16 @@ if "meals" not in st.session_state:
             "abendessen": [],
             "snacks": [],
         }
+
+if "meals" not in st.session_state:
+    st.session_state["meals"] = {
+        "fruehstueck": [],
+        "mittagessen": [],
+        "abendessen": [],
+        "snacks": [],
+    }
+elif cached_state and cached_state.get("meals") and all(len(st.session_state["meals"].get(k, [])) == 0 for k in ["fruehstueck", "mittagessen", "abendessen", "snacks"]):
+    st.session_state["meals"] = cached_state["meals"]
 
 # 2. Drinks aus Cache laden
 if "drinks" not in st.session_state:
@@ -396,6 +406,8 @@ if "drinks" not in st.session_state:
             "sonstiges_kcal": 0,
             "sonstiges_prot": 0,
         }
+elif cached_state and cached_state.get("drinks") and st.session_state["drinks"].get("wasser_soda", 0) == 0 and st.session_state["drinks"].get("whey_scoops", 0) == 0:
+    st.session_state["drinks"] = cached_state["drinks"]
 
 # 3. Daily Meta aus Cache laden
 if "daily_meta" not in st.session_state:
@@ -409,6 +421,8 @@ if "daily_meta" not in st.session_state:
             "schritte": 0,
             "notizen": "",
         }
+elif cached_state and cached_state.get("daily_meta") and st.session_state["daily_meta"].get("gewicht", 0.0) == 0.0:
+    st.session_state["daily_meta"] = cached_state["daily_meta"]
 
 # 4. Workout aus Cache laden
 if "workout" not in st.session_state:
