@@ -225,7 +225,7 @@ if tab == "🏠 Startseite":
     st.markdown("---")
     st.subheader("📌 Menü")
     
-    # Waage an ERSTER Stelle
+    # 1. Waage an erster Stelle
     if st.button("⚖️ Waage & KI-Auslese", use_container_width=True):
         st.session_state["nav_tab"] = "Waage"
         st.rerun()
@@ -246,6 +246,9 @@ if tab == "🏠 Startseite":
         st.rerun()
     if st.button("🏁 Tagesabschluss & Kontrollansicht", use_container_width=True):
         st.session_state["nav_tab"] = "Tagesabschluss"
+        st.rerun()
+    if st.button("📊 Statistik & Historie (letzte Monate)", use_container_width=True):
+        st.session_state["nav_tab"] = "Statistik"
         st.rerun()
 
 elif tab == "Waage":
@@ -281,3 +284,25 @@ elif tab == "Tagesabschluss":
     if st.button("🚀 In Excel speichern & Download vorbereiten"):
         save_current_day_to_excel()
         st.success("Erfolgreich in die Excel-Tabelle geschrieben und gespeichert!")
+
+elif tab == "Statistik":
+    st.title("📊 Statistik & Historie")
+    st.write("Hier siehst du die Auswertung und die bisherigen Einträge aus deiner Excel-Tabelle:")
+    try:
+        df_history = pd.read_excel(EXCEL_FILE)
+        if df_history.empty:
+        # Fallback if empty
+            st.info("Die Excel-Tabelle ist noch leer.")
+        else:
+            st.dataframe(df_history, use_container_width=True)
+            
+            # Beispiel für kleine Diagramme, falls Spalten vorhanden sind
+            if "KG" in df_history.columns and df_history["KG"].sum() > 0:
+                st.subheader("Gewichtsverlauf")
+                st.line_chart(df_history.set_index("Datum")["KG"])
+                
+            if "KCAL" in df_history.columns and df_history["KCAL"].sum() > 0:
+                st.subheader("Kalorienverlauf")
+                st.bar_chart(df_history.set_index("Datum")["KCAL"])
+    except FileNotFoundError:
+        st.warning(f"Die Datei '{EXCEL_FILE}' wurde noch nicht gefunden. Speichere zuerst mindestens einen Tag ab!")
