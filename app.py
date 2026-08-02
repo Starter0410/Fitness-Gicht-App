@@ -664,10 +664,9 @@ elif tab == "Abschluss":
         save_current_day_to_excel()
         st.success("Tagesdaten erfolgreich in die Excel-Tabelle geschrieben!")
 
-        with open(EXCEL_FILE, "wb") as f:
-            f.write(b"dummy excel bytes")
         with open(EXCEL_FILE, "rb") as f:
             excel_bytes = f.read()
+            
         st.download_button(
             label="📥 Excel-Datei herunterladen",
             data=excel_bytes,
