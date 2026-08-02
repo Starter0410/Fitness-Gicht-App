@@ -70,7 +70,6 @@ def render_drinks_page(save_callback):
     st.subheader("🥤 Getränke-Zähler")
     d = st.session_state["drinks"]
     
-    # Mit festen Keys, damit Streamlit sie bei Session-Änderungen oder Resets korrekt steuert
     d["wasser_soda"] = st.number_input("Wasser / Soda (Liter)", value=float(d["wasser_soda"]), step=0.5, key="input_wasser_soda")
     d["kaffee"] = st.number_input("Kaffee (Tassen)", value=int(d["kaffee"]), step=1, key="input_kaffee")
     d["whey_scoops"] = st.number_input("Whey Protein (Scoops)", value=int(d["whey_scoops"]), step=1, key="input_whey_scoops")
