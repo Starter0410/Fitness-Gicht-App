@@ -33,7 +33,7 @@ st.set_page_config(
 today_str = datetime.date.today().isoformat()
 
 # -------------------------------------------------------------------------
-# CACHE LADEN & SPEICHERN (Robuster gemacht)
+# CACHE LADEN & SPEICHERN
 # -------------------------------------------------------------------------
 
 def load_cache():
@@ -200,7 +200,6 @@ def save_current_day_to_excel():
 
     totals_kcal, totals_prot = get_todays_totals()
     
-    # NUR speichern, wenn auch wirklich Daten vorhanden sind (verhindert leere Startzeilen)
     has_data = (
         totals_kcal > 0 
         or totals_prot > 0 
@@ -321,7 +320,7 @@ def clear_todays_data():
 
 
 # -------------------------------------------------------------------------
-# SESSION STATE INITIALISIERUNG
+# SESSION STATE INITIALISIERUNG & EXCEL-FALLBACK
 # -------------------------------------------------------------------------
 if "nav_tab" not in st.session_state:
     st.session_state["nav_tab"] = "🏠 Startseite"
@@ -329,13 +328,35 @@ if "nav_tab" not in st.session_state:
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
-# Zuverlässiges Laden aus dem Cache beim Start
+# Prüfen ob Cache existiert, sonst ggf. aus Excel retten falls dort schon Daten stehen
+if cached_state and cached_state.get("meals") and any(cached_state["meals"].values()):
+    initial_meals = cached_state["meals"]
+else:
+    initial_meals = {"fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []}
+    # Fallback: Aus Excel einlesen falls vorhanden
+    if os.path.exists(EXCEL_FILE):
+        try:
+            df_ex = pd.read_excel(EXCEL_FILE)
+            if not df_ex.empty and "Datum" in df_ex.columns:
+                today_row = df_ex[df_ex["Datum"] == str(date.today())]
+                if not today_row.empty:
+                    f_val = today_row.iloc[0].get("Frühstück", "")
+                    f_note = today_row.iloc[0].get("Frühstück-Notiz", "")
+                    f_ampel = today_row.iloc[0].get("Frühstück-Ampel", "Grün")
+                    # Wenn in Excel Frühstück steht, rekonstruieren wir einen Eintrag
+                    if pd.notna(f_val) and str(f_val).strip() != "":
+                        initial_meals["fruehstueck"].append({
+                            "desc": str(f_val),
+                            "kcal": int(today_row.iloc[0].get("KCAL", 0)), # Näherung oder Fallback
+                            "prot": float(today_row.iloc[0].get("Prot", 0)),
+                            "gicht_status": str(f_ampel),
+                            "notiz": str(f_note) if pd.notna(f_note) else ""
+                        })
+        except Exception:
+            pass
+
 if "meals" not in st.session_state:
-    st.session_state["meals"] = cached_state.get("meals", {
-        "fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []
-    }) if cached_state else {
-        "fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []
-    }
+    st.session_state["meals"] = initial_meals
 
 if "drinks" not in st.session_state:
     st.session_state["drinks"] = cached_state.get("drinks", {
@@ -347,11 +368,22 @@ if "drinks" not in st.session_state:
     }
 
 if "daily_meta" not in st.session_state:
-    st.session_state["daily_meta"] = cached_state.get("daily_meta", {
+    meta_init = cached_state.get("daily_meta", {
         "gewicht": 0.0, "kfa": 0.0, "skel_musk": 0.0, "schritte": 0, "notizen": ""
     }) if cached_state else {
         "gewicht": 0.0, "kfa": 0.0, "skel_musk": 0.0, "schritte": 0, "notizen": ""
     }
+    # Auch hier Gewicht aus Excel holen falls Meta leer ist
+    if meta_init.get("gewicht", 0.0) == 0.0 and os.path.exists(EXCEL_FILE):
+        try:
+            df_ex = pd.read_excel(EXCEL_FILE)
+            today_row = df_ex[df_ex["Datum"] == str(date.today())]
+            if not today_row.empty:
+                meta_init["gewicht"] = float(today_row.iloc[0].get("KG", 0.0))
+                meta_init["schritte"] = int(today_row.iloc[0].get("Schritte", 0))
+        except Exception:
+            pass
+    st.session_state["daily_meta"] = meta_init
 
 if "workout" not in st.session_state:
     st.session_state["workout"] = cached_state.get("workout", {
