@@ -177,12 +177,25 @@ def generate_summary_string():
 def format_meal_column(items):
     if not items:
         return ""
-    return "; ".join(
-        [
-            f"{item['desc']} ({item['kcal']} kcal, {item['prot']}g)"
-            for item in items
-        ]
-    )
+    formatted_parts = []
+    for item in items:
+        title = item.get("titel", "").strip()
+        desc = item.get("desc", "").strip()
+        kcal = item.get("kcal", 0)
+        prot = item.get("prot", 0)
+        
+        if title and title != desc:
+            formatted_parts.append(f"[{title}] {desc} ({kcal} kcal, {prot}g)")
+        else:
+            formatted_parts.append(f"{desc} ({kcal} kcal, {prot}g)")
+    return "; ".join(formatted_parts)
+
+
+def format_meal_title_column(items):
+    if not items:
+        return ""
+    titles = [item.get("titel", "") for item in items if item.get("titel")]
+    return " | ".join(titles) if titles else ""
 
 
 def format_meal_note(items):
@@ -232,18 +245,30 @@ def save_current_day_to_excel():
         "KCAL": totals_kcal,
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
+        
+        # Frühstück mit Titel & Details
+        "Frühstück-Titel": format_meal_title_column(m.get("fruehstueck", [])),
         "Frühstück": format_meal_column(m.get("fruehstueck", [])),
         "Frühstück-Ampel": get_worst_gicht_status(m.get("fruehstueck", [])),
         "Frühstück-Notiz": format_meal_note(m.get("fruehstueck", [])),
+        
+        # Mittagessen mit Titel & Details
+        "Mittagessen-Titel": format_meal_title_column(m.get("mittagessen", [])),
         "Mittagessen": format_meal_column(m.get("mittagessen", [])),
         "Mittagessen-Ampel": get_worst_gicht_status(m.get("mittagessen", [])),
         "Mittagessen-Notiz": format_meal_note(m.get("mittagessen", [])),
+        
+        # Abendessen mit Titel & Details
+        "Abendessen-Titel": format_meal_title_column(m.get("abendessen", [])),
         "Abendessen": format_meal_column(m.get("abendessen", [])),
         "Abendessen-Ampel": get_worst_gicht_status(m.get("abendessen", [])),
         "Abendessen-Notiz": format_meal_note(m.get("abendessen", [])),
+        
+        # Snacks
         "Snacks": format_meal_column(m.get("snacks", [])),
         "Snack-Ampel": get_worst_gicht_status(m.get("snacks", [])),
         "Snacks-Notiz": format_meal_note(m.get("snacks", [])),
+        
         "Wasser/Soda/Zitrone": d.get("wasser_soda", 0),
         "Red-": d.get("redbull", 0),
         "Kaffe": d.get("kaffee", 0),
@@ -328,30 +353,30 @@ if "nav_tab" not in st.session_state:
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
-# Prüfen ob Cache existiert, sonst ggf. aus Excel retten falls dort schon Daten stehen
 if cached_state and cached_state.get("meals") and any(cached_state["meals"].values()):
     initial_meals = cached_state["meals"]
 else:
     initial_meals = {"fruehstueck": [], "mittagessen": [], "abendessen": [], "snacks": []}
-    # Fallback: Aus Excel einlesen falls vorhanden
     if os.path.exists(EXCEL_FILE):
         try:
             df_ex = pd.read_excel(EXCEL_FILE)
             if not df_ex.empty and "Datum" in df_ex.columns:
                 today_row = df_ex[df_ex["Datum"] == str(date.today())]
                 if not today_row.empty:
-                    f_val = today_row.iloc[0].get("Frühstück", "")
-                    f_note = today_row.iloc[0].get("Frühstück-Notiz", "")
-                    f_ampel = today_row.iloc[0].get("Frühstück-Ampel", "Grün")
-                    # Wenn in Excel Frühstück steht, rekonstruieren wir einen Eintrag
-                    if pd.notna(f_val) and str(f_val).strip() != "":
-                        initial_meals["fruehstueck"].append({
-                            "desc": str(f_val),
-                            "kcal": int(today_row.iloc[0].get("KCAL", 0)), # Näherung oder Fallback
-                            "prot": float(today_row.iloc[0].get("Prot", 0)),
-                            "gicht_status": str(f_ampel),
-                            "notiz": str(f_note) if pd.notna(f_note) else ""
-                        })
+                    for cat_key, col_name in [("fruehstueck", "Frühstück"), ("mittagessen", "Mittagessen"), ("abendessen", "Abendessen")]:
+                        f_val = today_row.iloc[0].get(col_name, "")
+                        f_title = today_row.iloc[0].get(f"{col_name}-Titel", "")
+                        f_note = today_row.iloc[0].get(f"{col_name}-Notiz", "")
+                        f_ampel = today_row.iloc[0].get(f"{col_name}-Ampel", "Grün")
+                        if pd.notna(f_val) and str(f_val).strip() != "":
+                            initial_meals[cat_key].append({
+                                "titel": str(f_title) if pd.notna(f_title) else "",
+                                "desc": str(f_val),
+                                "kcal": int(today_row.iloc[0].get("KCAL", 0)),
+                                "prot": float(today_row.iloc[0].get("Prot", 0)),
+                                "gicht_status": str(f_ampel),
+                                "notiz": str(f_note) if pd.notna(f_note) else ""
+                            })
         except Exception:
             pass
 
@@ -373,7 +398,6 @@ if "daily_meta" not in st.session_state:
     }) if cached_state else {
         "gewicht": 0.0, "kfa": 0.0, "skel_musk": 0.0, "schritte": 0, "notizen": ""
     }
-    # Auch hier Gewicht aus Excel holen falls Meta leer ist
     if meta_init.get("gewicht", 0.0) == 0.0 and os.path.exists(EXCEL_FILE):
         try:
             df_ex = pd.read_excel(EXCEL_FILE)
@@ -394,7 +418,6 @@ if "workout" not in st.session_state:
         "bike_km": 0.0, "bike_modus": "", "sonstiges": "", "notiz": ""
     }
 
-# Automatisches Sichern im Cache
 save_cache()
 
 # -------------------------------------------------------------------------
@@ -582,8 +605,9 @@ elif tab == "Abschluss":
                 )
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
+                    title_str = f" **[{itm.get('titel', '')}]**" if itm.get('titel') else ""
                     st.markdown(
-                        f"- **{itm['desc']}** ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
+                        f"-{title_str} **{itm['desc']}** ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
                     )
                     if itm.get("notiz"):
                         st.caption(f"  📝 Notiz: {itm['notiz']}")
@@ -649,6 +673,5 @@ elif tab == "Abschluss":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-# Abschließender Sync am Skript-Ende
 save_cache()
 save_current_day_to_excel()
