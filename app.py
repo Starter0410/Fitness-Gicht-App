@@ -5,8 +5,13 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-# Importiere deine Ansichten & Logik
-from views_meals import render_meal_page, render_snacks_page, render_drinks_page, render_preset_creator_page
+# Importiere deine Ansichten & Logik (inklusive der neuen Vorlagen-Ansicht)
+from views_meals import (
+    render_meal_page,
+    render_snacks_page,
+    render_drinks_page,
+    render_preset_creator_page,
+)
 from views_training import (
     render_waage_page,
     render_training_page,
@@ -113,7 +118,6 @@ if "workout" not in st.session_state:
             "notiz": "",
         }
 
-# Cache bei jeder Interaktion aktualisieren
 save_cache()
 
 # -------------------------------------------------------------------------
@@ -122,10 +126,6 @@ save_cache()
 
 
 def get_worst_gicht_status(items):
-    """Ermittelt den schlechtesten Gicht-Status aus einer Liste von Items.
-
-    Priorität: Rot (3) > Gelb (2) > Grün (1)
-    """
     if not items:
         return "Grün"
 
@@ -160,7 +160,6 @@ def get_todays_totals():
     snack_kcal = sum([s["kcal"] for s in m.get("snacks", [])])
     snack_prot = sum([s["prot"] for s in m.get("snacks", [])])
 
-    # Absicherung, falls d kein Dict ist (z.B. alter Cache-Rest)
     if not isinstance(d, dict):
         d = {
             "wasser_soda": 0,
@@ -196,7 +195,6 @@ def get_todays_totals():
 
 
 def generate_summary_string():
-    """Generiert eine fließende, motivierende Tageszusammenfassung als Text."""
     m = st.session_state["meals"]
     w = st.session_state["workout"]
     meta = st.session_state["daily_meta"]
@@ -292,7 +290,6 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Führt Beschreibungen von mehreren Items in einer Mahlzeit zusammen."""
     if not items:
         return ""
     return "; ".join(
@@ -304,7 +301,6 @@ def format_meal_column(items):
 
 
 def format_meal_note(items):
-    """Führt Notizen von mehreren Items einer Mahlzeit zusammen."""
     if not items:
         return ""
     notes = [item.get("notiz", "") for item in items if item.get("notiz")]
@@ -312,7 +308,6 @@ def format_meal_note(items):
 
 
 def clear_todays_data():
-    """Setzt alle Mahlzeiten, Getränke, Trainingsdaten und View-Zwischenspeicher zurück."""
     st.session_state["meals"] = {
         "fruehstueck": [],
         "mittagessen": [],
@@ -375,7 +370,6 @@ def clear_todays_data():
 
 
 def save_current_day_to_excel():
-    """Schreibt den aktuellen Tag exakt in die Spaltenstruktur der Excel-Datei."""
     m = st.session_state["meals"]
     d = st.session_state["drinks"]
     w = st.session_state["workout"]
@@ -518,6 +512,9 @@ if tab == "🏠 Startseite":
     if st.button("⚖️ Waagen-Analyse (Foto)", use_container_width=True):
         st.session_state["nav_tab"] = "Waage"
         st.rerun()
+    if st.button("📝 Mahlzeiten-Vorlagen verwalten", use_container_width=True):
+        st.session_state["nav_tab"] = "Vorlagen"
+        st.rerun()
     if st.button("🍳 Frühstück erfassen", use_container_width=True):
         st.session_state["nav_tab"] = "Frühstück"
         st.rerun()
@@ -542,6 +539,9 @@ if tab == "🏠 Startseite":
     if st.button("📊 Statistiken & Tabellen", use_container_width=True):
         st.session_state["nav_tab"] = "Statistiken"
         st.rerun()
+
+elif tab == "Vorlagen":
+    render_preset_creator_page(save_current_day_to_excel)
 
 elif tab == "Frühstück":
     render_meal_page(
