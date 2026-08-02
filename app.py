@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-# Importiere deine Ansichten & Logik (inklusive der neuen Vorlagen-Ansicht)
+# Importiere deine Ansichten & Logik
 from views_meals import (
     render_meal_page,
     render_snacks_page,
@@ -59,6 +59,10 @@ def save_cache():
 # -------------------------------------------------------------------------
 # SESSION STATE INITIALISIERUNG
 # -------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered"
+)
+
 cached_state = load_cache()
 
 if "nav_tab" not in st.session_state:
@@ -79,7 +83,11 @@ if "meals" not in st.session_state:
         }
 
 if "drinks" not in st.session_state:
-    if cached_state and "drinks" in cached_state and isinstance(cached_state["drinks"], dict):
+    if (
+        cached_state
+        and "drinks" in cached_state
+        and isinstance(cached_state["drinks"], dict)
+    ):
         st.session_state["drinks"] = cached_state["drinks"]
     else:
         st.session_state["drinks"] = {
@@ -97,9 +105,9 @@ if "daily_meta" not in st.session_state:
         st.session_state["daily_meta"] = cached_state["daily_meta"]
     else:
         st.session_state["daily_meta"] = {
-            "gewicht": 0,
-            "kfa": 0,
-            "skel_musk": 0,
+            "gewicht": 0.0,
+            "kfa": 0.0,
+            "skel_musk": 0.0,
             "schritte": 0,
             "notizen": "",
         }
@@ -117,8 +125,6 @@ if "workout" not in st.session_state:
             "sonstiges": "",
             "notiz": "",
         }
-
-save_cache()
 
 # -------------------------------------------------------------------------
 # HILFSFUNKTIONEN
@@ -333,40 +339,17 @@ def clear_todays_data():
         "notiz": "",
     }
     st.session_state["daily_meta"] = {
-        "gewicht": 0,
-        "kfa": 0,
-        "skel_musk": 0,
+        "gewicht": 0.0,
+        "kfa": 0.0,
+        "skel_musk": 0.0,
         "schritte": 0,
         "notizen": "",
     }
-
     if os.path.exists(CACHE_FILE):
         try:
             os.remove(CACHE_FILE)
         except Exception:
             pass
-
-    keys_to_purge = [
-        k
-        for k in st.session_state.keys()
-        if any(
-            sub in k
-            for sub in [
-                "input",
-                "text",
-                "temp",
-                "foto",
-                "file",
-                "upload",
-                "desc",
-                "kcal",
-                "prot",
-            ]
-        )
-    ]
-    for k in keys_to_purge:
-        if k not in ["nav_tab", "api_key"]:
-            del st.session_state[k]
 
 
 def save_current_day_to_excel():
@@ -433,17 +416,12 @@ def save_current_day_to_excel():
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
     except FileNotFoundError:
         df = pd.DataFrame([new_row])
-
     df.to_excel(EXCEL_FILE, index=False)
 
 
 # -------------------------------------------------------------------------
 # HAUPTSEITE & NAVIGATION
 # -------------------------------------------------------------------------
-st.set_page_config(
-    page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered"
-)
-
 with st.sidebar:
     st.subheader("⚙️ Konfiguration")
     st.session_state["api_key"] = st.text_input(
@@ -461,10 +439,6 @@ with st.sidebar:
             os.remove(CACHE_FILE)
         st.rerun()
 
-# Fix navigation radio buttons / menu tabs logic to prevent stale state issues
-if "nav_choice" not in st.session_state:
-    st.session_state["nav_choice"] = st.session_state.get("nav_tab", "🏠 Startseite")
-
 tabs_mapping = {
     "🏠 Startseite": "Startseite",
     "⚖️ Waagen-Analyse (Foto)": "Waage",
@@ -476,7 +450,7 @@ tabs_mapping = {
     "🥤 Getränke": "Getränke",
     "🏋️‍♂️ Training": "Training",
     "🏁 Tagesabschluss": "Abschluss",
-    "📊 Statistiken": "Statistiken"
+    "📊 Statistiken": "Statistiken",
 }
 
 with st.sidebar:
@@ -485,7 +459,9 @@ with st.sidebar:
     selected_menu = st.radio(
         "Menü auswählen",
         list(tabs_mapping.keys()),
-        index=list(tabs_mapping.values()).index(st.session_state["nav_tab"]) if st.session_state["nav_tab"] in tabs_mapping.values() else 0
+        index=list(tabs_mapping.values()).index(st.session_state["nav_tab"])
+        if st.session_state["nav_tab"] in tabs_mapping.values()
+        else 0,
     )
     if tabs_mapping[selected_menu] != st.session_state["nav_tab"]:
         st.session_state["nav_tab"] = tabs_mapping[selected_menu]
@@ -497,40 +473,29 @@ if tab == "Startseite":
     _, col_logo, _ = st.columns([3, 1, 3])
     with col_logo:
         st.markdown("# 🏋️‍♂️")
-
     st.title("Gicht & Body-Recomposition Tracker")
     st.markdown(
         "<p style='text-align: center; color: gray;'>the best version of me @"
         " starter (Auto-Save aktiv 🟢)</p>",
         unsafe_allow_html=True,
     )
-
     st.write(f"**Datum:** {date.today().strftime('%d.%m.%Y')}")
 
     total_kcal, total_prot = get_todays_totals()
-
     col1, col2 = st.columns(2)
     col1.metric("Heutige Kalorien", f"{total_kcal} kcal")
     col2.metric("Heutiges Protein", f"{total_prot} g")
 
     st.markdown("---")
     st.subheader("⚡ Macro & Target Status")
-
-    target_kcal = 2150
-    target_prot = 140
-
-    kcal_progress = min(total_kcal / target_kcal, 1.0)
-    prot_progress = min(total_prot / target_prot, 1.0)
-
+    target_kcal, target_prot = 2150, 140
     st.write(f"Kalorien-Ziel ({total_kcal} / {target_kcal} kcal)")
-    st.progress(kcal_progress)
-
+    st.progress(min(total_kcal / target_kcal, 1.0))
     st.write(f"Protein-Ziel ({total_prot} / {target_prot} g)")
-    st.progress(prot_progress)
+    st.progress(min(total_prot / target_prot, 1.0))
 
     st.markdown("---")
     st.subheader("📌 Schnellauswahl")
-
     col_btn_a, col_btn_b = st.columns(2)
     with col_btn_a:
         if st.button("⚖️ Waagen-Analyse", use_container_width=True):
@@ -575,7 +540,6 @@ elif tab == "Frühstück":
         st.session_state["api_key"],
         save_current_day_to_excel,
     )
-    save_cache()
 
 elif tab == "Mittagessen":
     render_meal_page(
@@ -584,7 +548,6 @@ elif tab == "Mittagessen":
         st.session_state["api_key"],
         save_current_day_to_excel,
     )
-    save_cache()
 
 elif tab == "Abendessen":
     render_meal_page(
@@ -593,32 +556,30 @@ elif tab == "Abendessen":
         st.session_state["api_key"],
         save_current_day_to_excel,
     )
-    save_cache()
 
 elif tab == "Snacks":
     render_snacks_page(st.session_state["api_key"], save_current_day_to_excel)
-    save_cache()
 
 elif tab == "Getränke":
     render_drinks_page(save_current_day_to_excel)
-    save_cache()
 
 elif tab == "Waage":
     render_waage_page(st.session_state["api_key"], save_current_day_to_excel)
-    save_cache()
 
 elif tab == "Training":
     render_training_page(st.session_state["api_key"], save_current_day_to_excel)
-    save_cache()
 
 elif tab == "Statistiken":
     render_statistik_page(EXCEL_FILE)
 
 elif tab == "Abschluss":
     st.subheader("🔍 Tagesabschluss & Kontrollansicht")
-
     total_kcal, total_prot = get_todays_totals()
-    d_safe = st.session_state["drinks"] if isinstance(st.session_state["drinks"], dict) else {}
+    d_safe = (
+        st.session_state["drinks"]
+        if isinstance(st.session_state["drinks"], dict)
+        else {}
+    )
 
     with st.expander(
         "👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status"
@@ -626,12 +587,10 @@ elif tab == "Abschluss":
         expanded=True,
     ):
         m = st.session_state["meals"]
-
         st.markdown(
             f"**Gesamtbilanz:** 🔥 {total_kcal} kcal | 🥩 {total_prot} g Protein"
         )
         st.markdown("---")
-
         for cat_label, cat_key in [
             ("🍳 Frühstück", "fruehstueck"),
             ("🥗 Mittagessen", "mittagessen"),
@@ -668,7 +627,6 @@ elif tab == "Abschluss":
             )
 
     st.markdown("---")
-
     meta = st.session_state["daily_meta"]
     meta["gewicht"] = st.number_input(
         "Heutiges Körpergewicht (kg)", value=float(meta["gewicht"]), step=0.1
@@ -687,7 +645,6 @@ elif tab == "Abschluss":
     with col_btn1:
         if st.button("✨ Motivierende Tagesnotiz generieren"):
             meta["notizen"] = generate_summary_string()
-            save_cache()
             st.success("Motivierende Tagesnotiz erfolgreich erstellt!")
             st.rerun()
     with col_btn2:
@@ -700,7 +657,6 @@ elif tab == "Abschluss":
         "Tagesnotizen / Motivations-Feedback (wird in Excel gespeichert)",
         value=meta["notizen"],
     )
-    save_cache()
 
     st.info(f"**Bisherige Tagesbilanz:** {total_kcal} kcal | {total_prot} g Protein")
 
@@ -718,3 +674,8 @@ elif tab == "Abschluss":
             file_name=EXCEL_FILE,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+# -------------------------------------------------------------------------
+# CACHE AM ENDE DES SKRIPTS SPEICHERN (greift nach allen Widgets & Interaktionen)
+# -------------------------------------------------------------------------
+save_cache()
