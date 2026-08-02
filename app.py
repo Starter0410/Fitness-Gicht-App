@@ -15,13 +15,56 @@ from views_meals import (
 from views_training import (
     render_waage_page,
     render_training_page,
-    render_statistik_page,
 )
 from logic_gemini import analyze_images_or_text
 
 # Excel-Dateiname & Cache-Datei
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
 CACHE_FILE = "daily_cache.json"
+
+# -------------------------------------------------------------------------
+# SAUBERE STATISTIK-SEITENFUNKTION (Heutiger Tag bleibt immer sichtbar)
+# -------------------------------------------------------------------------
+def render_statistik_page_clean(excel_file):
+    st.subheader("📊 Statistiken & Historie")
+    if not os.path.exists(excel_file):
+        st.info("Noch keine Excel-Datei vorhanden. Erfasse zuerst Daten.")
+        return
+
+    try:
+        df = pd.read_excel(excel_file)
+        if df.empty:
+            st.info("Die Excel-Datei ist leer.")
+            return
+
+        # 1. Datum in reinen String (YYYY-MM-DD) umwandeln, um das "00:00:00" zu entfernen
+        if "Datum" in df.columns:
+            df["Datum"] = pd.to_datetime(df["Datum"], errors="coerce").dt.strftime("%Y-%m-%d")
+
+        # 2. Leerstellen/None durch leere Strings ersetzen für eine saubere Optik
+        df = df.fillna("")
+
+        # 3. Intelligentes Filtern:
+        # - Vergangene Tage mit 0 kcal und 0 kg werden ausgeblendet.
+        # - Der HEUTIGE Tag bleibt IMMER erhalten, damit du ihn tagsüber befüllen kannst.
+        today_str = str(date.today())
+        
+        if "KCAL" in df.columns and "KG" in df.columns and "Datum" in df.columns:
+            is_today = (df["Datum"] == today_str)
+            has_content = (
+                ((df["KCAL"] != 0) & (df["KCAL"] != "")) | 
+                ((df["KG"] != 0) & (df["KG"] != ""))
+            )
+            df_filtered = df[is_today | has_content]
+        else:
+            df_filtered = df
+
+        st.markdown("### 📋 Vollständige Datentabelle (gefiltert)")
+        st.dataframe(df_filtered, use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Fehler beim Laden der Statistiken: {e}")
+
 
 # -------------------------------------------------------------------------
 # SEITENKONFIGURATION (Muss als Erstes stehen!)
@@ -577,7 +620,7 @@ elif tab == "Training":
     render_training_page(st.session_state["api_key"], save_current_day_to_excel)
 
 elif tab == "Statistiken":
-    render_statistik_page(EXCEL_FILE)
+    render_statistik_page_clean(EXCEL_FILE)
 
 elif tab == "Abschluss":
     st.subheader("🔍 Tagesabschluss & Kontrollansicht")
