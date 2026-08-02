@@ -1,10 +1,116 @@
 import streamlit as st
+import json
+import os
 from PIL import Image
 from logic_gemini import analyze_images_or_text
 
+PRESETS_FILE = "meal_presets.json"
+
+def load_meal_presets():
+    if os.path.exists(PRESETS_FILE):
+        try:
+            with open(PRESETS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {
+        "Frühstück": [],
+        "Mittagessen": [],
+        "Abendessen": [],
+        "Snacks": []
+    }
+
+def save_meal_presets(presets):
+    try:
+        with open(PRESETS_FILE, "w", encoding="utf-8") as f:
+            json.dump(presets, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+def render_preset_creator_page(save_callback):
+    st.markdown("### 📝 Feste Mahlzeit / Vorlage erstellen")
+    st.write("Erstelle hier deine Standard-Gerichte. Sie stehen dir danach direkt in den jeweiligen Tabs zur Auswahl.")
+
+    presets = load_meal_presets()
+
+    with st.form("preset_form"):
+        kategorie = st.selectbox("Kategorie", ["Frühstück", "Mittagessen", "Abendessen", "Snacks"])
+        titel = st.text_input("Titel (z. B. Protein-Porridge)")
+        inhalt = st.text_area("Inhalt / Beschreibung (z. B. 80g Haferflocken, 30g Whey, Beeren)")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            kcal = st.number_input("Kalorien (kcal)", min_value=0, step=10, value=350)
+        with col2:
+            protein = st.number_input("Protein (g)", min_value=0.0, step=1.0, value=30.0)
+
+        submitted = st.form_submit_button("💾 Vorlage speichern")
+        if submitted:
+            if titel.strip():
+                new_entry = {
+                    "titel": titel,
+                    "inhalt": inhalt,
+                    "kcal": int(kcal),
+                    "prot": float(protein),
+                    "gicht_status": "Grün"
+                }
+                if kategorie not in presets:
+                    presets[kategorie] = []
+                presets[kategorie].append(new_entry)
+                save_meal_presets(presets)
+                st.success(f"Vorlage '{titel}' unter '{kategorie}' erfolgreich gespeichert!")
+            else:
+                st.warning("Bitte gib mindestens einen Titel ein.")
+
+    st.markdown("---")
+    st.subheader("📚 Deine bisherigen Vorlagen")
+    
+    for kat, items in presets.items():
+        with st.expander(f"{kat} ({len(items)} Vorlagen)"):
+            if items:
+                for idx, item in enumerate(items):
+                    cols = st.columns([4, 1])
+                    with cols[0]:
+                        st.markdown(f"**{item['titel']}** – 🔥 {item['kcal']} kcal | 🥩 {item['prot']}g Protein")
+                        if item.get('inhalt'):
+                            st.caption(f"Inhalt: {item['inhalt']}")
+                    with cols[1]:
+                        if st.button("❌ Löschen", key=f"del_preset_{kat}_{idx}"):
+                            items.pop(idx)
+                            save_meal_presets(presets)
+                            st.rerun()
+            else:
+                st.info("Keine Vorlagen in dieser Kategorie.")
+
 def render_meal_page(title, key, api_key, save_callback):
     st.markdown(f"### 🍽️ {title} erfassen")
-    st.write("Lade Fotos hoch oder tippe die Mahlzeit ein. Die KI berechnet Nährwerte und den Gicht-Status.")
+    st.write("Wähle eine gespeicherte Vorlage, lade ein Foto hoch oder tippe die Mahlzeit ein.")
+
+    # --- SCHNELL-AUSWAHL AUS GESPEICHERTEN VORLAGEN ---
+    presets = load_meal_presets()
+    category_presets = presets.get(title, [])
+    if category_presets:
+        preset_titles = ["-- Vorlage wählen (optional) --"] + [p["titel"] for p in category_presets]
+        selected_preset_title = st.selectbox(f"⭐ Schnellauswahl für {title}", preset_titles, key=f"preset_picker_{key}")
+        
+        if selected_preset_title != "-- Vorlage wählen (optional) --":
+            matched = next((p for p in category_presets if p["titel"] == selected_preset_title), None)
+            if matched:
+                if st.button(f"⚡ Vorlage '{matched['titel']}' sofort eintragen", key=f"add_preset_btn_{key}"):
+                    if key not in st.session_state["meals"]:
+                        st.session_state["meals"][key] = []
+                    
+                    st.session_state["meals"][key].append({
+                        "desc": f"{matched['titel']} ({matched['inhalt']})" if matched['inhalt'] else matched['titel'],
+                        "kcal": matched["kcal"],
+                        "prot": matched["prot"],
+                        "notiz": matched["inhalt"],
+                        "gicht_status": matched.get("gicht_status", "Grün")
+                    })
+                    save_callback()
+                    st.success(f"'{matched['titel']}' erfolgreich zur Mahlzeit hinzugefügt!")
+                    st.rerun()
+        st.markdown("---")
 
     uploaded_images = st.file_uploader(f"📸 Foto(s) für {title} hochladen", type=["jpg", "jpeg", "png"], accept_multiple_files=True, key=f"img_{key}")
     
