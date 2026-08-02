@@ -175,39 +175,22 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Gibt den Titel (oder Beschreibung falls kein Titel da ist) für die Excel-Hauptspalte aus."""
-    if not items:
-        return ""
-    formatted_parts = []
-    for item in items:
-        title = item.get("titel", "").strip()
-        desc = item.get("desc", "").strip()
-        
-        # Falls ein Titel da ist, nutzen wir diesen primär für die Hauptspalte
-        if title:
-            formatted_parts.append(title)
-        elif desc:
-            formatted_parts.append(desc)
-    return " | ".join(formatted_parts)
-
-
-def format_meal_title_column(items):
+    """Gibt NUR den eingetragenen Mahlzeiten-Titel für die Excel-Hauptspalte aus."""
     if not items:
         return ""
     titles = []
     for item in items:
-        t = item.get("titel", "").strip()
-        if not t and item.get("desc"):
-            t = item.get("desc").split("(")[0].strip()
-        if t:
-            titles.append(t)
+        title = item.get("titel", "").strip()
+        if title:
+            titles.append(title)
     return " | ".join(titles) if titles else ""
 
 
 def format_meal_note(items):
+    """Gibt die Notiz / Beschreibung für die Excel-Notizspalte aus."""
     if not items:
         return ""
-    notes = [item.get("notiz", "") for item in items if item.get("notiz")]
+    notes = [item.get("notiz", "").strip() for item in items if item.get("notiz", "").strip()]
     return " | ".join(notes) if notes else ""
 
 
@@ -252,20 +235,17 @@ def save_current_day_to_excel():
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
         
-        # Frühstück mit Titel & Details
-        "Frühstück-Titel": format_meal_title_column(m.get("fruehstueck", [])),
+        # Frühstück
         "Frühstück": format_meal_column(m.get("fruehstueck", [])),
         "Frühstück-Ampel": get_worst_gicht_status(m.get("fruehstueck", [])),
         "Frühstück-Notiz": format_meal_note(m.get("fruehstueck", [])),
         
-        # Mittagessen mit Titel & Details
-        "Mittagessen-Titel": format_meal_title_column(m.get("mittagessen", [])),
+        # Mittagessen
         "Mittagessen": format_meal_column(m.get("mittagessen", [])),
         "Mittagessen-Ampel": get_worst_gicht_status(m.get("mittagessen", [])),
         "Mittagessen-Notiz": format_meal_note(m.get("mittagessen", [])),
         
-        # Abendessen mit Titel & Details
-        "Abendessen-Titel": format_meal_title_column(m.get("abendessen", [])),
+        # Abendessen
         "Abendessen": format_meal_column(m.get("abendessen", [])),
         "Abendessen-Ampel": get_worst_gicht_status(m.get("abendessen", [])),
         "Abendessen-Notiz": format_meal_note(m.get("abendessen", [])),
@@ -371,13 +351,12 @@ else:
                 if not today_row.empty:
                     for cat_key, col_name in [("fruehstueck", "Frühstück"), ("mittagessen", "Mittagessen"), ("abendessen", "Abendessen")]:
                         f_val = today_row.iloc[0].get(col_name, "")
-                        f_title = today_row.iloc[0].get(f"{col_name}-Titel", "")
                         f_note = today_row.iloc[0].get(f"{col_name}-Notiz", "")
                         f_ampel = today_row.iloc[0].get(f"{col_name}-Ampel", "Grün")
                         if pd.notna(f_val) and str(f_val).strip() != "":
                             initial_meals[cat_key].append({
-                                "titel": str(f_title) if pd.notna(f_title) else "",
-                                "desc": str(f_val),
+                                "titel": str(f_val) if pd.notna(f_val) else "",
+                                "desc": "",
                                 "kcal": int(today_row.iloc[0].get("KCAL", 0)),
                                 "prot": float(today_row.iloc[0].get("Prot", 0)),
                                 "gicht_status": str(f_ampel),
@@ -611,7 +590,7 @@ elif tab == "Abschluss":
                 )
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
-                    title_str = f" **{itm.get('titel', '')}**" if itm.get('titel') else f" **{itm.get('desc', '')}**"
+                    title_str = f" **{itm.get('titel', '')}**" if itm.get('titel') else ""
                     st.markdown(
                         f"-{title_str} ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
                     )
