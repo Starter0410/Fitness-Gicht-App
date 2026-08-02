@@ -1,4 +1,5 @@
 from datetime import date
+import json
 import os
 import pandas as pd
 import streamlit as st
@@ -17,8 +18,9 @@ from views_training import (
 )
 from logic_gemini import analyze_images_or_text
 
-# Excel-Dateiname
+# Excel-Dateiname & Cache-Datei
 EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
+CACHE_FILE = "daily_cache.json"
 
 # -------------------------------------------------------------------------
 # SEITENKONFIGURATION (Muss als Erstes stehen!)
@@ -27,8 +29,44 @@ st.set_page_config(
     page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered"
 )
 
+today_str = datetime.date.today().isoformat()
+
 # -------------------------------------------------------------------------
-# HILFSFUNKTIONEN FÜR DATENBANK- / EXCEL-SYNC
+# CACHE LADEN & SPEICHERN (Für die Ansichten auf dem Handy)
+# -------------------------------------------------------------------------
+
+
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data.get("date") == today_str:
+                    return data.get("state", {})
+        except Exception:
+            pass
+    return None
+
+
+def save_cache():
+    state_to_save = {
+        "date": today_str,
+        "meals": st.session_state.get("meals", {}),
+        "drinks": st.session_state.get("drinks", {}),
+        "workout": st.session_state.get("workout", {}),
+        "daily_meta": st.session_state.get("daily_meta", {}),
+    }
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state_to_save, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+
+cached_state = load_cache()
+
+# -------------------------------------------------------------------------
+# HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
 
 
@@ -306,7 +344,11 @@ def clear_todays_data():
         "schritte": 0,
         "notizen": "",
     }
-    # Auch aus Excel löschen falls vorhanden
+    if os.path.exists(CACHE_FILE):
+        try:
+            os.remove(CACHE_FILE)
+        except Exception:
+            pass
     if os.path.exists(EXCEL_FILE):
         try:
             df = pd.read_excel(EXCEL_FILE)
@@ -315,10 +357,11 @@ def clear_todays_data():
                 df.to_excel(EXCEL_FILE, index=False)
         except Exception:
             pass
+    save_cache()
 
 
 # -------------------------------------------------------------------------
-# SESSION STATE INITIALISIERUNG & EXCEL-WIEDERHERSTELLUNG
+# SESSION STATE INITIALISIERUNG (Mit Cache-Wiederherstellung)
 # -------------------------------------------------------------------------
 if "nav_tab" not in st.session_state:
     st.session_state["nav_tab"] = "🏠 Startseite"
@@ -326,96 +369,63 @@ if "nav_tab" not in st.session_state:
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
-# Versuche beim Start, den heutigen Tag aus der Excel-Datei wiederherzustellen,
-# falls die App neu gestartet wurde (z.B. nach Schließen des Handys).
-loaded_from_excel = False
-if "meals" not in st.session_state and os.path.exists(EXCEL_FILE):
-    try:
-        df_init = pd.read_excel(EXCEL_FILE)
-        today_row = df_init[df_init["Datum"] == str(date.today())]
-        if not today_row.empty:
-            r = today_row.iloc[0]
-            # Meta-Daten wiederherstellen
-            st.session_state["daily_meta"] = {
-                "gewicht": float(r.get("KG", 0.0) or 0.0),
-                "kfa": float(str(r.get("KFA", 0)).replace("%", "") or 0.0),
-                "skel_musk": float(r.get("Skel.Musk", 0.0) or 0.0),
-                "schritte": int(r.get("Schritte", 0) or 0),
-                "notizen": str(r.get("Notiz12 Tageszusammenfassung", "") or ""),
-            }
-            # Getränke wiederherstellen
-            st.session_state["drinks"] = {
-                "wasser_soda": float(r.get("Wasser/Soda/Zitrone", 0) or 0),
-                "kaffee": int(r.get("Kaffe", 0) or 0),
-                "whey_scoops": int(r.get("Whey", 0) or 0),
-                "redbull": int(r.get("Red-", 0) or 0),
-                "sonstiges_txt": str(r.get("Getränke-Sonstige", "") or ""),
-                "sonstiges_kcal": 0,
-                "sonstiges_prot": 0,
-            }
-            # Workout wiederherstellen
-            st.session_state["workout"] = {
-                "schritte": int(r.get("Schritte", 8000) or 8000),
-                "zirkel_min": int(r.get("Training", 0) or 0),
-                "zirkel_details": "",
-                "bike_km": float(r.get("Fahrrad (km)", 0.0) or 0.0),
-                "bike_modus": "",
-                "sonstiges": str(r.get("Training-Sonstiges", "") or ""),
-                "notiz": str(r.get("Notiz11 Training", "") or ""),
-            }
-            # Hinweis: Mahlzeiten-Listen können aus dem String-Format im Excel
-            # bei Bedarf leer bleiben oder frisch gefüllt werden.
-            st.session_state["meals"] = {
-                "fruehstueck": [],
-                "mittagessen": [],
-                "abendessen": [],
-                "snacks": [],
-            }
-            loaded_from_excel = True
-    except Exception:
-        pass
-
-# Standard-Initialisierung falls kein Excel-Eintrag existiert
+# 1. Meals aus Cache laden
 if "meals" not in st.session_state:
-    st.session_state["meals"] = {
-        "fruehstueck": [],
-        "mittagessen": [],
-        "abendessen": [],
-        "snacks": [],
-    }
+    if cached_state and cached_state.get("meals"):
+        st.session_state["meals"] = cached_state["meals"]
+    else:
+        st.session_state["meals"] = {
+            "fruehstueck": [],
+            "mittagessen": [],
+            "abendessen": [],
+            "snacks": [],
+        }
 
+# 2. Drinks aus Cache laden
 if "drinks" not in st.session_state:
-    st.session_state["drinks"] = {
-        "wasser_soda": 0,
-        "kaffee": 0,
-        "whey_scoops": 0,
-        "redbull": 0,
-        "sonstiges_txt": "",
-        "sonstiges_kcal": 0,
-        "sonstiges_prot": 0,
-    }
+    if cached_state and cached_state.get("drinks"):
+        st.session_state["drinks"] = cached_state["drinks"]
+    else:
+        st.session_state["drinks"] = {
+            "wasser_soda": 0,
+            "kaffee": 0,
+            "whey_scoops": 0,
+            "redbull": 0,
+            "sonstiges_txt": "",
+            "sonstiges_kcal": 0,
+            "sonstiges_prot": 0,
+        }
 
+# 3. Daily Meta aus Cache laden
 if "daily_meta" not in st.session_state:
-    st.session_state["daily_meta"] = {
-        "gewicht": 0.0,
-        "kfa": 0.0,
-        "skel_musk": 0.0,
-        "schritte": 0,
-        "notizen": "",
-    }
+    if cached_state and cached_state.get("daily_meta"):
+        st.session_state["daily_meta"] = cached_state["daily_meta"]
+    else:
+        st.session_state["daily_meta"] = {
+            "gewicht": 0.0,
+            "kfa": 0.0,
+            "skel_musk": 0.0,
+            "schritte": 0,
+            "notizen": "",
+        }
 
+# 4. Workout aus Cache laden
 if "workout" not in st.session_state:
-    st.session_state["workout"] = {
-        "schritte": 8000,
-        "zirkel_min": 0,
-        "zirkel_details": "",
-        "bike_km": 0.0,
-        "bike_modus": "",
-        "sonstiges": "",
-        "notiz": "",
-    }
+    if cached_state and cached_state.get("workout"):
+        st.session_state["workout"] = cached_state["workout"]
+    else:
+        st.session_state["workout"] = {
+            "schritte": 8000,
+            "zirkel_min": 0,
+            "zirkel_details": "",
+            "bike_km": 0.0,
+            "bike_modus": "",
+            "sonstiges": "",
+            "notiz": "",
+        }
 
-# Nach jeder Aktion direkt in Excel zwischenspeichern (Auto-Save)
+# Automatisches Sichern im Cache & Excel bei jedem Seitenaufruf
+save_cache()
 save_current_day_to_excel()
 
 # -------------------------------------------------------------------------
@@ -434,8 +444,8 @@ with st.sidebar:
     st.markdown("---")
     if st.button("🔄 App Daten komplett zurücksetzen"):
         st.session_state.clear()
-        if os.path.exists(EXCEL_FILE):
-            os.remove(EXCEL_FILE)
+        if os.path.exists(CACHE_FILE):
+            os.remove(CACHE_FILE)
         st.rerun()
 
 tabs_mapping = {
@@ -475,7 +485,7 @@ if tab == "Startseite":
     st.title("Gicht & Body-Recomposition Tracker")
     st.markdown(
         "<p style='text-align: center; color: gray;'>the best version of me @"
-        " starter (Excel Auto-Save aktiv 🟢)</p>",
+        " starter (Auto-Save aktiv 🟢)</p>",
         unsafe_allow_html=True,
     )
     st.write(f"**Datum:** {date.today().strftime('%d.%m.%Y')}")
@@ -639,6 +649,7 @@ elif tab == "Abschluss":
     with col_btn1:
         if st.button("✨ Motivierende Tagesnotiz generieren"):
             meta["notizen"] = generate_summary_string()
+            save_cache()
             save_current_day_to_excel()
             st.success("Motivierende Tagesnotiz erfolgreich erstellt!")
             st.rerun()
@@ -669,5 +680,6 @@ elif tab == "Abschluss":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-# Abschließender Excel-Sync bei jedem Seitenaufruf
+# Abschließender Sync am Skript-Ende
+save_cache()
 save_current_day_to_excel()
