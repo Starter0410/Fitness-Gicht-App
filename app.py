@@ -175,7 +175,7 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Gibt NUR den eingetragenen Mahlzeiten-Titel für die Excel-Hauptspalte aus."""
+    """Gibt AUSSCHLIESSLICH den Mahlzeiten-Titel für die Excel-Hauptspalte aus."""
     if not items:
         return ""
     titles = []
@@ -187,7 +187,7 @@ def format_meal_column(items):
 
 
 def format_meal_note(items):
-    """Gibt die Notiz / Beschreibung für die Excel-Notizspalte aus."""
+    """Gibt AUSSCHLIESSLICH die KI-Notiz / Antwort für die Excel-Notizspalte aus."""
     if not items:
         return ""
     notes = [item.get("notiz", "").strip() for item in items if item.get("notiz", "").strip()]
@@ -235,7 +235,7 @@ def save_current_day_to_excel():
         "Prot": totals_prot,
         "Defizit/Überschuss": defizit_ueberschuss,
         
-        # Frühstück
+        # Frühstück (Titel in Hauptspalte, KI-Notiz in Notizspalte)
         "Frühstück": format_meal_column(m.get("fruehstueck", [])),
         "Frühstück-Ampel": get_worst_gicht_status(m.get("fruehstueck", [])),
         "Frühstück-Notiz": format_meal_note(m.get("fruehstueck", [])),
@@ -278,8 +278,8 @@ def save_current_day_to_excel():
         else:
             df = pd.DataFrame([new_row])
         df.to_excel(EXCEL_FILE, index=False)
-    except Exception:
-        pass
+    except Exception as e:
+        st.error(f"Fehler beim Speichern in Excel: {e}")
 
 
 def clear_todays_data():
