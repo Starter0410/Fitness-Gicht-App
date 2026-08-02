@@ -194,7 +194,13 @@ def format_meal_column(items):
 def format_meal_title_column(items):
     if not items:
         return ""
-    titles = [item.get("titel", "") for item in items if item.get("titel")]
+    titles = []
+    for item in items:
+        t = item.get("titel", "").strip()
+        if not t and item.get("desc"):
+            t = item.get("desc").split("(")[0].strip()
+        if t:
+            titles.append(t)
     return " | ".join(titles) if titles else ""
 
 
