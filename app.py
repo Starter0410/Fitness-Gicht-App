@@ -349,10 +349,13 @@ else:
             if not df_ex.empty and "Datum" in df_ex.columns:
                 today_row = df_ex[df_ex["Datum"] == str(date.today())]
                 if not today_row.empty:
-                    for cat_key, col_name in [("fruehstueck", "Frühstück"), ("mittagessen", "Mittagessen"), ("abendessen", "Abendessen")]:
+                    for cat_key, col_name in [("fruehstueck", "Frühstück"), ("mittagessen", "Mittagessen"), ("abendessen", "Abendessen"), ("snacks", "Snacks")]:
                         f_val = today_row.iloc[0].get(col_name, "")
-                        f_note = today_row.iloc[0].get(f"{col_name}-Notiz", "")
-                        f_ampel = today_row.iloc[0].get(f"{col_name}-Ampel", "Grün")
+                        note_col_name = f"{col_name}-Notiz" if col_name != "Snacks" else "Snacks-Notiz"
+                        f_note = today_row.iloc[0].get(note_col_name, "")
+                        ampel_col_name = f"{col_name}-Ampel" if col_name != "Snacks" else "Snack-Ampel"
+                        f_ampel = today_row.iloc[0].get(ampel_col_name, "Grün")
+                        
                         if pd.notna(f_val) and str(f_val).strip() != "":
                             initial_meals[cat_key].append({
                                 "titel": str(f_val) if pd.notna(f_val) else "",
