@@ -24,7 +24,6 @@ def load_cache():
         try:
             with open(CACHE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # Prüfen, ob der Cache vom heutigen Tag ist
                 if data.get("date") == today_str:
                     return data.get("state", {})
         except Exception:
@@ -33,7 +32,6 @@ def load_cache():
 
 
 def save_cache():
-    # Alles aus st.session_state sichern, was für den Tag relevant ist
     state_to_save = {
         "date": today_str,
         "meals": st.session_state.get("meals", {}),
@@ -92,6 +90,10 @@ if "daily_meta" not in st.session_state:
             "notes": "",
         }
 
+# Sicherstellen, dass drinks immer eine Liste von Dicts ist (Fehler abfangen)
+if not isinstance(st.session_state["drinks"], list):
+    st.session_state["drinks"] = []
+
 # Jedes Mal bei Interaktion Cache aktualisieren
 save_cache()
 
@@ -116,17 +118,21 @@ if menu == "🏠 Dashboard & Übersicht":
         f"Heutiges Datum: **{datetime.date.today().strftime('%d.%m.%Y')}** | Status: **Automatische Zwischenspeicherung aktiv 🟢**"
     )
 
-    # Berechnungen
+    # Berechnungen (mit Fehlertoleranz für Getränke)
     total_kcal = 0
     total_protein = 0
     for category, items in st.session_state["meals"].items():
-        for item in items:
-            total_kcal += item.get("kcal", 0)
-            total_protein += item.get("protein", 0)
+        if isinstance(items, list):
+            for item in items:
+                if isinstance(item, dict):
+                    total_kcal += item.get("kcal", 0)
+                    total_protein += item.get("protein", 0)
 
-    total_water = sum(
-        d.get("amount", 0) for d in st.session_state["drinks"]
-    )
+    total_water = 0
+    for d in st.session_state["drinks"]:
+        if isinstance(d, dict):
+            total_water += d.get("amount", 0)
+
     steps = st.session_state["daily_meta"].get("steps", 0)
     weight = st.session_state["daily_meta"].get("weight", 0)
     ampel = st.session_state["daily_meta"].get(
@@ -178,30 +184,33 @@ elif menu == "🍳 Mahlzeiten & Ernährung":
         submitted = st.form_submit_button("Mahlzeit hinzufügen")
 
         if submitted and food_name:
+            if meal_category not in st.session_state["meals"]:
+                st.session_state["meals"][meal_category] = []
             st.session_state["meals"][meal_category].append(
                 {"name": food_name, "kcal": kcal_val, "protein": protein_val}
             )
-            save_cache()  # Sofort speichern
+            save_cache()
             st.success(f"'{food_name}' erfolgreich hinzugefügt!")
             st.rerun()
 
     st.subheader("Bisherige Einträge heute:")
     for cat, items in st.session_state["meals"].items():
         st.markdown(f"**{cat}**")
-        if not items:
+        if not items or not isinstance(items, list):
             st.write("Noch keine Einträge.")
         else:
             for idx, item in enumerate(items):
-                col_i1, col_i2 = st.columns([4, 1])
-                with col_i1:
-                    st.write(
-                        f"- {item['name']}: {item['kcal']} kcal, {item['protein']}g Protein"
-                    )
-                with col_i2:
-                    if st.button("Löschen", key=f"del_meal_{cat}_{idx}"):
-                        st.session_state["meals"][cat].pop(idx)
-                        save_cache()
-                        st.rerun()
+                if isinstance(item, dict):
+                    col_i1, col_i2 = st.columns([4, 1])
+                    with col_i1:
+                        st.write(
+                            f"- {item.get('name', '')}: {item.get('kcal', 0)} kcal, {item.get('protein', 0)}g Protein"
+                        )
+                    with col_i2:
+                        if st.button("Löschen", key=f"del_meal_{cat}_{idx}"):
+                            st.session_state["meals"][cat].pop(idx)
+                            save_cache()
+                            st.rerun()
 
 # --- 3. WASSER & GETRÄNKE ---
 elif menu == "💧 Wasser & Getränke":
@@ -231,19 +240,22 @@ elif menu == "💧 Wasser & Getränke":
             st.success(f"{amount_ml} ml {drink_type} eingetragen!")
             st.rerun()
 
-    total_w = sum(d.get("amount", 0) for d in st.session_state["drinks"])
+    total_w = sum(
+        d.get("amount", 0) for d in st.session_state["drinks"] if isinstance(d, dict)
+    )
     st.metric("Gesamte Flüssigkeitsaufnahme heute", f"{total_w} ml")
 
     st.subheader("Getränke-Liste:")
     for idx, d in enumerate(st.session_state["drinks"]):
-        col_d1, col_d2 = st.columns([4, 1])
-        with col_d1:
-            st.write(f"- {d['amount']} ml: {d['type']}")
-        with col_d2:
-            if st.button("Entfernen", key=f"del_drink_{idx}"):
-                st.session_state["drinks"].pop(idx)
-                save_cache()
-                st.rerun()
+        if isinstance(d, dict):
+            col_d1, col_d2 = st.columns([4, 1])
+            with col_d1:
+                st.write(f"- {d.get('amount', 0)} ml: {d.get('type', '')}")
+            with col_d2:
+                if st.button("Entfernen", key=f"del_drink_{idx}"):
+                    st.session_state["drinks"].pop(idx)
+                    save_cache()
+                    st.rerun()
 
 # --- 4. TRAINING & AKTIVITÄT ---
 elif menu == "🏋️‍♂️ Training & Aktivität":
@@ -340,19 +352,22 @@ elif menu == "📊 Tagesabschluss & Excel-Export":
         "Hier siehst du die Zusammenfassung des Tages und kannst alle Daten final in die Excel-Tabelle schreiben."
     )
 
-    # Berechnungen für Anzeige
     total_kcal = sum(
         i.get("kcal", 0)
         for cat in st.session_state["meals"].values()
+        if isinstance(cat, list)
         for i in cat
+        if isinstance(i, dict)
     )
     total_protein = sum(
         i.get("protein", 0)
         for cat in st.session_state["meals"].values()
+        if isinstance(cat, list)
         for i in cat
+        if isinstance(i, dict)
     )
     total_water = sum(
-        d.get("amount", 0) for d in st.session_state["drinks"]
+        d.get("amount", 0) for d in st.session_state["drinks"] if isinstance(d, dict)
     )
 
     st.write(f"- **Kalorien:** {total_kcal} kcal")
@@ -379,7 +394,6 @@ elif menu == "📊 Tagesabschluss & Excel-Export":
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Tagebuch"
-            # Header schreiben
             headers = [
                 "Datum",
                 "Gewicht (kg)",
@@ -393,7 +407,6 @@ elif menu == "📊 Tagesabschluss & Excel-Export":
                 "Notizen",
             ]
             ws.append(headers)
-            # Header styling
             for col_idx in range(1, len(headers) + 1):
                 cell = ws.cell(row=1, column=col_idx)
                 cell.font = Font(bold=True, color="FFFFFF")
@@ -406,7 +419,6 @@ elif menu == "📊 Tagesabschluss & Excel-Export":
                     horizontal="center", vertical="center"
                 )
 
-        # Datensatz für heute anhängen
         row_data = [
             datetime.date.today().strftime("%Y-%m-%d"),
             st.session_state["daily_meta"].get("weight"),
@@ -421,7 +433,6 @@ elif menu == "📊 Tagesabschluss & Excel-Export":
         ]
         ws.append(row_data)
 
-        # Spaltenbreite anpassen
         for col in ws.columns:
             max_len = max(len(str(cell.value or "")) for cell in col)
             col_letter = get_column_letter(col[0].column)
