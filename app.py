@@ -24,6 +24,13 @@ EXCEL_FILE = "Gicht_Fitnees_APP.xlsx"
 CACHE_FILE = "daily_cache.json"
 
 # -------------------------------------------------------------------------
+# SEITENKONFIGURATION (Muss als Erstes stehen!)
+# -------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered"
+)
+
+# -------------------------------------------------------------------------
 # AUTOMATISCHES ZWISCHENSPEICHERN & LADEN (JSON CACHE)
 # -------------------------------------------------------------------------
 today_str = datetime.date.today().isoformat()
@@ -42,6 +49,7 @@ def load_cache():
 
 
 def save_cache():
+    # Speichere nur, wenn auch wirklich Daten da sind (verhindert Überschreiben mit Leer-State)
     state_to_save = {
         "date": today_str,
         "meals": st.session_state.get("meals", {}),
@@ -56,23 +64,21 @@ def save_cache():
         pass
 
 
-# -------------------------------------------------------------------------
-# SESSION STATE INITIALISIERUNG
-# -------------------------------------------------------------------------
-st.set_page_config(
-    page_title="Gicht & Fitness Tracker", page_icon="🏋️‍♂️", layout="centered"
-)
-
+# Cache EINMALIG vor der Session-Initialisierung laden
 cached_state = load_cache()
 
+# -------------------------------------------------------------------------
+# SESSION STATE INITIALISIERUNG (Mit sicherem Fallback auf Cache)
+# -------------------------------------------------------------------------
 if "nav_tab" not in st.session_state:
     st.session_state["nav_tab"] = "🏠 Startseite"
 
 if "api_key" not in st.session_state:
     st.session_state["api_key"] = ""
 
+# 1. Meals
 if "meals" not in st.session_state:
-    if cached_state and "meals" in cached_state:
+    if cached_state and cached_state.get("meals"):
         st.session_state["meals"] = cached_state["meals"]
     else:
         st.session_state["meals"] = {
@@ -82,12 +88,9 @@ if "meals" not in st.session_state:
             "snacks": [],
         }
 
+# 2. Drinks
 if "drinks" not in st.session_state:
-    if (
-        cached_state
-        and "drinks" in cached_state
-        and isinstance(cached_state["drinks"], dict)
-    ):
+    if cached_state and cached_state.get("drinks"):
         st.session_state["drinks"] = cached_state["drinks"]
     else:
         st.session_state["drinks"] = {
@@ -100,8 +103,9 @@ if "drinks" not in st.session_state:
             "sonstiges_prot": 0,
         }
 
+# 3. Daily Meta
 if "daily_meta" not in st.session_state:
-    if cached_state and "daily_meta" in cached_state:
+    if cached_state and cached_state.get("daily_meta"):
         st.session_state["daily_meta"] = cached_state["daily_meta"]
     else:
         st.session_state["daily_meta"] = {
@@ -112,8 +116,9 @@ if "daily_meta" not in st.session_state:
             "notizen": "",
         }
 
+# 4. Workout
 if "workout" not in st.session_state:
-    if cached_state and "workout" in cached_state:
+    if cached_state and cached_state.get("workout"):
         st.session_state["workout"] = cached_state["workout"]
     else:
         st.session_state["workout"] = {
@@ -126,6 +131,9 @@ if "workout" not in st.session_state:
             "notiz": "",
         }
 
+# Sofort nach dem Laden einmal absichern, damit der Cache den korrekten Start-State hat
+save_cache()
+
 # -------------------------------------------------------------------------
 # HILFSFUNKTIONEN
 # -------------------------------------------------------------------------
@@ -134,19 +142,15 @@ if "workout" not in st.session_state:
 def get_worst_gicht_status(items):
     if not items:
         return "Grün"
-
     rank = {"grün": 1, "gelb": 2, "rot": 3}
     worst_score = 1
     worst_word = "Grün"
-
     for item in items:
         status = str(item.get("gicht_status", "Grün")).strip().lower()
         current_score = rank.get(status, 1)
-
         if current_score > worst_score:
             worst_score = current_score
             worst_word = status.capitalize()
-
     return worst_word
 
 
@@ -156,13 +160,10 @@ def get_todays_totals():
 
     fruehstueck_kcal = sum([item["kcal"] for item in m.get("fruehstueck", [])])
     fruehstueck_prot = sum([item["prot"] for item in m.get("fruehstueck", [])])
-
     mittag_kcal = sum([item["kcal"] for item in m.get("mittagessen", [])])
     mittag_prot = sum([item["prot"] for item in m.get("mittagessen", [])])
-
     abend_kcal = sum([item["kcal"] for item in m.get("abendessen", [])])
     abend_prot = sum([item["prot"] for item in m.get("abendessen", [])])
-
     snack_kcal = sum([s["kcal"] for s in m.get("snacks", [])])
     snack_prot = sum([s["prot"] for s in m.get("snacks", [])])
 
@@ -431,7 +432,7 @@ with st.sidebar:
     st.markdown("---")
     if st.button("🧹 Heutigen Tag zurücksetzen (Clear All)", type="secondary"):
         clear_todays_data()
-        st.success("Alle heutigen Einträge gelöscht!")
+        st.success("Heutige Einträge gelöscht!")
         st.rerun()
     st.markdown("---")
     if st.button("🔄 App Daten komplett zurücksetzen"):
@@ -676,6 +677,6 @@ elif tab == "Abschluss":
         )
 
 # -------------------------------------------------------------------------
-# CACHE AM ENDE DES SKRIPTS SPEICHERN (greift nach allen Widgets & Interaktionen)
+# CACHE AM ENDE SPEICHERN
 # -------------------------------------------------------------------------
 save_cache()
