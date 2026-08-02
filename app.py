@@ -49,22 +49,22 @@ def load_cache():
 
 
 def save_cache():
-    # Speichere nur, wenn auch wirklich Daten da sind (verhindert Überschreiben mit Leer-State)
-    state_to_save = {
-        "date": today_str,
-        "meals": st.session_state.get("meals", {}),
-        "drinks": st.session_state.get("drinks", {}),
-        "workout": st.session_state.get("workout", {}),
-        "daily_meta": st.session_state.get("daily_meta", {}),
-    }
-    try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state_to_save, f, ensure_ascii=False, indent=4)
-    except Exception:
-        pass
+    if "meals" in st.session_state:
+        state_to_save = {
+            "date": today_str,
+            "meals": st.session_state.get("meals", {}),
+            "drinks": st.session_state.get("drinks", {}),
+            "workout": st.session_state.get("workout", {}),
+            "daily_meta": st.session_state.get("daily_meta", {}),
+        }
+        try:
+            with open(CACHE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state_to_save, f, ensure_ascii=False, indent=4)
+        except Exception:
+            pass
 
 
-# Cache EINMALIG vor der Session-Initialisierung laden
+# Cache vor der Initialisierung laden
 cached_state = load_cache()
 
 # -------------------------------------------------------------------------
@@ -131,7 +131,7 @@ if "workout" not in st.session_state:
             "notiz": "",
         }
 
-# Sofort nach dem Laden einmal absichern, damit der Cache den korrekten Start-State hat
+# Sofort nach dem Laden einmal absichern
 save_cache()
 
 # -------------------------------------------------------------------------
@@ -584,8 +584,7 @@ elif tab == "Abschluss":
     )
 
     with st.expander(
-        "👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status"
-        " (Kontrolle)",
+        "👀 Übersicht der erfassten Mahlzeiten, Notizen & Gicht-Status (Kontrolle)",
         expanded=True,
     ):
         m = st.session_state["meals"]
@@ -608,8 +607,7 @@ elif tab == "Abschluss":
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
                     st.markdown(
-                        f"- **{itm['desc']}** ({itm['kcal']} kcal,"
-                        f" {itm['prot']}g Protein) | *Gicht: **{gicht}***"
+                        f"- **{itm['desc']}** ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
                     )
                     if itm.get("notiz"):
                         st.caption(f"  📝 Notiz: {itm['notiz']}")
@@ -618,14 +616,11 @@ elif tab == "Abschluss":
 
         st.markdown("---")
         st.markdown(
-            f"**🥤 Getränke:** Wasser/Soda: {d_safe.get('wasser_soda', 0)}L | Kaffee:"
-            f" {d_safe.get('kaffee', 0)} Tassen | Whey: {d_safe.get('whey_scoops', 0)} Scoops | Energy:"
-            f" {d_safe.get('redbull', 0)} Dosen"
+            f"**🥤 Getränke:** Wasser/Soda: {d_safe.get('wasser_soda', 0)}L | Kaffee: {d_safe.get('kaffee', 0)} Tassen | Whey: {d_safe.get('whey_scoops', 0)} Scoops | Energy: {d_safe.get('redbull', 0)} Dosen"
         )
         if d_safe.get("sonstiges_txt"):
             st.markdown(
-                f"*Sonstiges:* {d_safe.get('sonstiges_txt')} ({d_safe.get('sonstiges_kcal', 0)} kcal,"
-                f" {d_safe.get('sonstiges_prot', 0)}g Protein)"
+                f"*Sonstiges:* {d_safe.get('sonstiges_txt')} ({d_safe.get('sonstiges_kcal', 0)} kcal, {d_safe.get('sonstiges_prot', 0)}g Protein)"
             )
 
     st.markdown("---")
@@ -647,6 +642,7 @@ elif tab == "Abschluss":
     with col_btn1:
         if st.button("✨ Motivierende Tagesnotiz generieren"):
             meta["notizen"] = generate_summary_string()
+            save_cache()
             st.success("Motivierende Tagesnotiz erfolgreich erstellt!")
             st.rerun()
     with col_btn2:
