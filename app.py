@@ -175,16 +175,18 @@ def generate_summary_string():
 
 
 def format_meal_column(items):
-    """Gibt den eingegebenen Titel für die Excel-Hauptspalte aus."""
+    """Greift zuverlässig den Titel ab – unabhängig davon, welcher Schlüssel in views_meals genutzt wird."""
     if not items:
         return ""
     titles = []
     for item in items:
-        # Nimm primär den Titel, falls vorhanden
-        title = item.get("titel", "").strip()
-        if not title:
-            # Fallback auf Beschreibung, falls kein Titel gesetzt wurde
-            title = item.get("desc", "").strip()
+        title = (
+            item.get("titel") 
+            or item.get("name") 
+            or item.get("text") 
+            or item.get("desc", "")
+        ).strip()
+        
         if title:
             titles.append(title)
     return " | ".join(titles) if titles else ""
@@ -597,7 +599,9 @@ elif tab == "Abschluss":
                 )
                 for itm in items:
                     gicht = itm.get("gicht_status", "Grün")
-                    title_str = f" **{itm.get('titel', '')}**" if itm.get('titel') else ""
+                    # Dynamische Titel-Ermittlung auch für die Vorschau
+                    title_val = (itm.get("titel") or itm.get("name") or itm.get("text") or "").strip()
+                    title_str = f" **{title_val}**" if title_val else ""
                     st.markdown(
                         f"-{title_str} ({itm['kcal']} kcal, {itm['prot']}g Protein) | *Gicht: **{gicht}***"
                     )
